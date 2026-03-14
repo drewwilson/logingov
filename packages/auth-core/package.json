@@ -1,0 +1,21 @@
+{
+  "name": "@logingov/auth-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@logingov/infra": "workspace:*",
+    "@logingov/session-do": "workspace:*",
+    "@logingov/shared": "workspace:*",
+    "better-auth": "^1.5.5",
+    "drizzle-orm": "0.45.1",
+    "hono": "^4.7.0",
+    "jose": "^6.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

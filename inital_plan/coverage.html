@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coverage Matrix — Login.gov Modern Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f7f5; --bg2: #ffffff; --bg3: #f0ede8;
+    --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.14);
+    --text: #1a1c1e; --text2: #4a5260; --text3: #8a919c;
+    --accent: #1a6fd4; --accent2: #0a8c68; --accent3: #b86e00; --danger: #c0392b;
+    --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(248,247,245,0.94); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 56px; }
+  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .nav-logo { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .nav-logo svg { width: 16px; height: 16px; }
+  .nav-title { font-family: var(--mono); font-size: 13px; color: var(--text); letter-spacing: 0.02em; }
+  .nav-title span { color: var(--accent); }
+  .nav-links { display: flex; align-items: center; gap: 4px; }
+  .nav-links a { font-size: 13px; color: var(--text2); text-decoration: none; padding: 6px 12px; border-radius: 6px; transition: all 0.15s; font-family: var(--mono); }
+  .nav-links a:hover { color: var(--text); background: var(--bg3); }
+  .nav-links a.active { color: var(--accent); background: rgba(74,158,255,0.08); }
+  .nav-badge { font-family: var(--mono); font-size: 11px; background: rgba(74,158,255,0.12); color: var(--accent); padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(26,111,212,0.2); }
+
+  .page-header { padding: 48px 32px 0; max-width: 1100px; margin: 0 auto; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; color: var(--accent2); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .eyebrow::before { content: ''; display: inline-block; width: 20px; height: 1px; background: var(--accent2); }
+  h1 { font-size: clamp(24px, 3vw, 36px); font-weight: 300; letter-spacing: -0.02em; color: var(--text); margin-bottom: 12px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .page-desc { font-size: 14px; color: var(--text2); max-width: 560px; font-weight: 300; margin-bottom: 32px; }
+
+  .main { padding: 24px 32px 64px; max-width: 1100px; margin: 0 auto; }
+
+  /* SUMMARY CARDS */
+  .summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+  .sum-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 110px; }
+  .sum-num { font-family: var(--mono); font-size: 26px; font-weight: 500; color: var(--text); line-height: 1; margin-bottom: 4px; }
+  .sum-label { font-size: 11px; color: var(--text3); font-family: var(--mono); letter-spacing: 0.04em; }
+
+  /* CONTROLS */
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+  .filter-btn { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text3); cursor: pointer; transition: all 0.15s; font-family: var(--mono); }
+  .filter-btn:hover { background: var(--bg2); color: var(--text2); }
+  .filter-btn.active { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+  .controls-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+  /* TABLE */
+  .table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg2); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 800px; }
+  thead th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); background: var(--bg2); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text2); line-height: 1.5; }
+  tr:last-child td { border-bottom: none; }
+  tr.data-row:hover td { background: rgba(0,0,0,0.02); }
+  td.name-cell { color: var(--text); }
+  .feature-name { font-weight: 500; color: var(--text); font-family: var(--mono); font-size: 11px; margin-bottom: 2px; }
+  .feature-sub { font-size: 11px; color: var(--text3); }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .badge-ba     { background: rgba(26,111,212,0.08);  color: #1a6fd4; border: 1px solid rgba(26,111,212,0.2); }
+  .badge-vendor { background: rgba(127,119,221,0.12);color: #534ab7; border: 1px solid rgba(127,119,221,0.25); }
+  .badge-custom { background: rgba(0,0,0,0.04);      color: #4a5260; border: 1px solid rgba(0,0,0,0.1); }
+  .badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .risk-low  { color: #0a8c68; font-family: var(--mono); font-size: 11px; font-weight: 500; }
+  .risk-med  { color: #b86e00; font-family: var(--mono); font-size: 11px; font-weight: 500; }
+  .risk-high { color: var(--danger); font-family: var(--mono); font-size: 11px; font-weight: 500; }
+
+  .cat-pill { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); color: var(--text3); white-space: nowrap; }
+  code { font-family: var(--mono); font-size: 11px; background: var(--bg3); color: var(--accent2); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border); }
+
+  .hidden { display: none; }
+
+  /* LEGEND ROW */
+  .legend-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+  footer { border-top: 1px solid var(--border); padding: 32px; display: flex; align-items: center; justify-content: space-between; max-width: 1100px; margin: 0 auto; padding-bottom: 60px; }
+  .footer-left { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+  .footer-left span { color: var(--accent); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-up { animation: fadeUp 0.4s ease forwards; }
+  .delay-1 { animation-delay: 0.08s; opacity: 0; }
+  .delay-2 { animation-delay: 0.16s; opacity: 0; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html">
+    <div class="nav-logo">
+      <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="6" width="12" height="9" rx="1.5" stroke="#ffffff" stroke-width="1.5"/><path d="M5 6V4.5a3 3 0 016 0V6" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="10.5" r="1.5" fill="#ffffff"/></svg>
+    </div>
+    <span class="nav-title">login<span>.gov</span> / modern-stack</span>
+  </a>
+  <div class="nav-links">
+    <a href="index.html">Overview</a>
+    <a href="infra.html">Infrastructure</a>
+    <a href="coverage.html" class="active">Coverage</a>
+    <a href="database.html">Database</a>
+    <span class="nav-badge">Draft v0.1</span>
+  </div>
+</nav>
+
+<div class="page-header fade-up">
+  <div class="eyebrow">Feature mapping</div>
+  <h1>Coverage <em>matrix</em></h1>
+  <p class="page-desc">Every feature from the existing system mapped to its Cloudflare implementation. Filter by category to find specific areas. 50 features, zero gaps.</p>
+</div>
+
+<div class="main fade-up delay-1">
+  <div class="summary" id="summary"></div>
+
+  <div class="legend-row">
+    <div class="legend-item"><span class="badge badge-ba" style="font-size:10px">better-auth</span> — Handled by the framework</div>
+    <div class="legend-item"><span class="badge badge-vendor" style="font-size:10px">vendor</span> — External service integration</div>
+    <div class="legend-item"><span class="badge badge-custom" style="font-size:10px">custom</span> — Code we write ourselves</div>
+  </div>
+
+  <div class="controls fade-up delay-2">
+    <button class="filter-btn active" onclick="filter('all')">All (50)</button>
+    <div class="controls-sep"></div>
+    <button class="filter-btn" onclick="filter('OIDC')">OIDC / OAuth2</button>
+    <button class="filter-btn" onclick="filter('SAML')">SAML</button>
+    <button class="filter-btn" onclick="filter('Identity')">Identity proofing</button>
+    <button class="filter-btn" onclick="filter('MFA')">MFA</button>
+    <button class="filter-btn" onclick="filter('Security')">Security events</button>
+    <button class="filter-btn" onclick="filter('Account')">Account mgmt</button>
+    <button class="filter-btn" onclick="filter('Infra')">Infrastructure</button>
+    <div class="controls-sep"></div>
+    <button class="filter-btn" onclick="filterRisk('high')" id="risk-btn">High risk only</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:18%">Feature</th>
+          <th style="width:9%">Category</th>
+          <th style="width:24%">Replaces</th>
+          <th style="width:28%">Implementation</th>
+          <th style="width:11%">Source</th>
+          <th style="width:10%">Risk</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-left">login<span>.gov</span> / modern-stack — internal proposal</div>
+  <div class="nav-links">
+    <a href="infra.html" style="font-family:var(--mono); font-size:12px; color:var(--text3); text-decoration:none;">← infra</a>
+    <a href="index.html" style="font-family:var(--mono); font-size:12px; color:var(--text3); text-decoration:none;">overview →</a>
+  </div>
+</footer>
+
+<script>
+const rows = [
+  { name:"OIDC authorization endpoint", sub:"/openid_connect/authorize", cat:"OIDC", old:"Rails controller, Postgres session state, server-rendered redirect", newImpl:"Better Auth OIDC provider plugin + Hono Worker; Durable Object for auth state; SP config from KV", status:"ba", risk:"low" },
+  { name:"private_key_jwt client auth", sub:"RS256 signed JWT at token endpoint", cat:"OIDC", old:"Ruby JWT gem validates client assertion, public key stored in Postgres", newImpl:"jose + oauth4webapi in Worker; public keys cached in KV, fallback to PlanetScale", status:"custom", risk:"low" },
+  { name:"PKCE flow", sub:"code_challenge / code_verifier", cat:"OIDC", old:"Rails, challenge stored in server session", newImpl:"Better Auth handles PKCE; challenge stored in Durable Object for auth session duration, verified at token exchange", status:"ba", risk:"low" },
+  { name:"Token endpoint", sub:"/api/openid_connect/token", cat:"OIDC", old:"Rails, issues RS256 id_token + access_token, Postgres for code lookup", newImpl:"Better Auth token endpoint via Hono Worker; jose for signing; PlanetScale auth_codes table via Hyperdrive; single-use enforcement in transaction", status:"ba", risk:"low" },
+  { name:"Pairwise subject identifiers", sub:"Different sub per SP", cat:"OIDC", old:"HMAC of user_id + sector_identifier in Ruby", newImpl:"Web Crypto API HMAC in Worker — no library needed, same algorithm", status:"custom", risk:"low" },
+  { name:"Userinfo endpoint", sub:"/api/openid_connect/userinfo", cat:"OIDC", old:"Rails, bearer token validates against Postgres, returns scoped claims", newImpl:"Better Auth session validation via KV/DO; user attributes fetched from PlanetScale nearest replica via Hyperdrive; claims returned per scope", status:"ba", risk:"low" },
+  { name:"JWKS / certs endpoint", sub:"/.well-known/openid-configuration + /certs", cat:"OIDC", old:"Rails static + dynamic, keys in encrypted Postgres column", newImpl:"JWKS served from CF KV (1hr TTL), keys rotated via Workers Secrets + R2", status:"custom", risk:"low" },
+  { name:"OIDC logout", sub:"/openid_connect/logout", cat:"OIDC", old:"Rails, invalidates Postgres session, redirects to post_logout_redirect_uri", newImpl:"Better Auth invalidates session (DO + KV); validates id_token_hint; redirects to post_logout_redirect_uri", status:"ba", risk:"low" },
+  { name:"Deprecated ACR values", sub:"ial/1, ial/2, loa/1, loa/3 URNs", cat:"OIDC", old:"Mapped in Rails to internal IAL/AAL levels", newImpl:"Mapping table in Worker middleware — translate to new URNs before IAL evaluator", status:"custom", risk:"low" },
+  { name:"Locale param", sub:"ES / FR language selection", cat:"OIDC", old:"Rails i18n, locale passed through session", newImpl:"Locale stored in DO auth state, passed to UI Worker for i18n rendering", status:"custom", risk:"low" },
+  { name:"SAML 2.0 SSO", sub:"Web Browser SSO Profile", cat:"SAML", old:"Ruby-saml gem, full SP/IdP implementation in Rails", newImpl:"Thin bridge Worker using samlify — parses AuthnRequest, routes to OIDC flow internally", status:"custom", risk:"med" },
+  { name:"SAML metadata endpoint", sub:"/api/saml/metadata{year}", cat:"SAML", old:"Rails generates XML dynamically from Postgres SP config", newImpl:"Worker generates XML from PlanetScale SP record (via Hyperdrive) + KV-cached signing cert", status:"custom", risk:"low" },
+  { name:"SAML annual cert rotation", sub:"Yearly endpoint versioning", cat:"SAML", old:"New Rails routes + certs each spring cycle", newImpl:"Worker routes /api/saml/auth{year} dynamically; certs stored in Workers Secrets by year key", status:"custom", risk:"med" },
+  { name:"SAML logout", sub:"Single Logout Profile", cat:"SAML", old:"Ruby-saml handles SLO POST binding", newImpl:"Bridge Worker handles LogoutRequest, destroys DO session, issues LogoutResponse", status:"custom", risk:"med" },
+  { name:"SAML NameID (UUID)", sub:"RFC 4122 v4 UUID format", cat:"SAML", old:"User UUID from Postgres", newImpl:"Same UUID from PlanetScale — pairwise sub formatted as NameID in SAML bridge Worker", status:"custom", risk:"low" },
+  { name:"IAL1 — auth only", sub:"urn:acr.login.gov:auth-only", cat:"Identity", old:"Rails ACR evaluator, no proofing required", newImpl:"IAL evaluator Worker — checks PlanetScale user.ial, passes through if >= requested level", status:"custom", risk:"low" },
+  { name:"IAL2 — identity verified", sub:"urn:acr.login.gov:verified", cat:"Identity", old:"Rails, triggers proofing via Experian/LexisNexis API, stores result in Postgres", newImpl:"Proofing Worker calls Persona or LexisNexis API, writes verified attributes to PlanetScale", status:"vendor", risk:"high" },
+  { name:"IAL2 with facial match", sub:"verified-facial-match-required/preferred", cat:"Identity", old:"Rails, facial match via IDEMIA/external vendor, stored in Postgres", newImpl:"Proofing Worker calls Persona biometric API; result + timestamp stored in PlanetScale", status:"vendor", risk:"high" },
+  { name:"verified_at timestamp", sub:"Profile verification timestamp", cat:"Identity", old:"Postgres column, returned as Unix epoch in userinfo", newImpl:"PlanetScale users.verified_at column, returned via Better Auth userinfo endpoint", status:"ba", risk:"low" },
+  { name:"Re-proofing flow", sub:"Subsequent identity reverification", cat:"Identity", old:"Rails detects existing verified profile, runs re-proof, emits SET", newImpl:"Proofing Worker checks existing PlanetScale ial=2 record, re-proofs, emits reproof-completed SET via Queue", status:"custom", risk:"med" },
+  { name:"SSN attribute", sub:"social_security_number scope", cat:"Identity", old:"Encrypted in Postgres, only returned for IAL2 SPs", newImpl:"Encrypted in PlanetScale (AES-256-GCM at application layer), scope gated to IAL2 SPs", status:"custom", risk:"med" },
+  { name:"x509 / PIV/CAC", sub:"x509, x509:issuer, x509:subject scopes", cat:"Identity", old:"Rails middleware, client cert extraction from TLS terminator headers", newImpl:"CF mTLS at edge — cert metadata passed as headers to Worker; stored in DO session", status:"custom", risk:"med" },
+  { name:"AAL2 — second factor required", sub:"Default MFA enforcement", cat:"MFA", old:"Rails enforces MFA step, remembered device cookie (30-day)", newImpl:"Better Auth twoFactor plugin; AAL evaluator in Worker; remembered device stored as encrypted DO state with 30-day alarm", status:"ba", risk:"low" },
+  { name:"AAL2 phishing-resistant", sub:"?phishing_resistant=true", cat:"MFA", old:"Rails enforces WebAuthn or PIV/CAC only", newImpl:"Better Auth passkey plugin enforces WebAuthn-only; AAL evaluator rejects TOTP/SMS sessions for phishing-resistant requirement", status:"ba", risk:"low" },
+  { name:"HSPD-12 / PIV/CAC AAL", sub:"?hspd12=true", cat:"MFA", old:"Rails enforces PIV/CAC only via client cert check", newImpl:"AAL evaluator checks DO session for x509_presented=true + issuer validation", status:"custom", risk:"med" },
+  { name:"TOTP authenticator app", sub:"Time-based OTP", cat:"MFA", old:"Ruby rotp gem, TOTP secret in encrypted Postgres column", newImpl:"Better Auth twoFactor plugin (TOTP); secret encrypted in PlanetScale credentials table", status:"ba", risk:"low" },
+  { name:"SMS / phone OTP", sub:"One-time codes via SMS", cat:"MFA", old:"Rails + Twilio, code stored in Redis with TTL", newImpl:"Better Auth twoFactor plugin (OTP); Worker publishes to CF Queue → Twilio consumer; code stored in KV with 10min TTL", status:"vendor", risk:"low" },
+  { name:"WebAuthn / passkeys", sub:"Security keys, face/touch unlock", cat:"MFA", old:"webauthn-ruby gem, credential stored in Postgres", newImpl:"Better Auth passkey plugin (wraps SimpleWebAuthn); credential stored in PlanetScale passkey table", status:"ba", risk:"low" },
+  { name:"Backup codes", sub:"One-time recovery codes", cat:"MFA", old:"Bcrypt hashes in Postgres, invalidated on use", newImpl:"Better Auth twoFactor backup codes; Argon2 hashes in PlanetScale, single-use enforced via transaction", status:"ba", risk:"low" },
+  { name:"MFA rate limiting / lockout", sub:"Locks account after failures", cat:"MFA", old:"Rails + Redis counter with TTL, account locked in Postgres", newImpl:"Better Auth built-in rate limiter; KV counter per user_id with TTL; DO session invalidation + PlanetScale locked_at timestamp", status:"ba", risk:"low" },
+  { name:"RISC SET submission (inbound)", sub:"RPs report fraud to Login.gov", cat:"Security", old:"Rails /api/risc/security_events, validates RS256 JWT, acts on event", newImpl:"Worker validates signed JWT with jose, writes to PlanetScale identity_events table, triggers async action via Queue", status:"custom", risk:"low" },
+  { name:"authorization-fraud-detected SET", sub:"Inbound: credential compromise", cat:"Security", old:"Rails forces password reset on receipt", newImpl:"Queue consumer Worker forces password reset flag in PlanetScale, invalidates all Better Auth sessions for user", status:"custom", risk:"low" },
+  { name:"identity-fraud-detected SET", sub:"Inbound: identity theft signal", cat:"Security", old:"Rails resets verified profile data in Postgres", newImpl:"Queue consumer resets PlanetScale ial to 1, clears verified attributes, emits account-disabled SET", status:"custom", risk:"med" },
+  { name:"RISC SET delivery (outbound)", sub:"Login.gov pushes events to RPs", cat:"Security", old:"Rails background job (Sidekiq) POSTs signed JWT to SP push_notification_url", newImpl:"CF Queue consumer Worker signs JWT with jose, POSTs to SP URL, retries on non-200", status:"custom", risk:"low" },
+  { name:"account-disabled SET", sub:"Outbound: account suspended", cat:"Security", old:"Sidekiq job fires on admin suspend action", newImpl:"PlanetScale write via Queue when users.locked_at is set by admin Worker", status:"custom", risk:"low" },
+  { name:"account-purged SET", sub:"Outbound: user deletes account", cat:"Security", old:"Sidekiq fires on account deletion in Rails", newImpl:"Account delete Worker publishes to Queue; consumer sends SET then hard-deletes PlanetScale rows", status:"custom", risk:"low" },
+  { name:"password-reset / recovery-activated SETs", sub:"Outbound: password events", cat:"Security", old:"Rails hooks on password change/reset flow", newImpl:"Password reset Worker publishes events to Queue; consumer Worker dispatches signed SETs", status:"custom", risk:"low" },
+  { name:"identifier-changed / recycled SETs", sub:"Outbound: email address changes", cat:"Security", old:"Sidekiq fires on email change/removal", newImpl:"Email management Worker publishes to Queue on change/remove; consumer sends SETs", status:"custom", risk:"low" },
+  { name:"/.well-known/risc-configuration", sub:"RISC auto-discovery endpoint", cat:"Security", old:"Rails static JSON endpoint", newImpl:"Worker returns static JSON; cached in KV", status:"custom", risk:"low" },
+  { name:"Email address management", sub:"Add / remove / primary email", cat:"Account", old:"Rails, multiple emails in Postgres user_emails table", newImpl:"Better Auth account management + PlanetScale user_emails table; all_emails scope returns array from JOIN", status:"ba", risk:"low" },
+  { name:"Email verification flow", sub:"Confirm email on signup/add", cat:"Account", old:"Rails generates token, stores in Postgres with TTL, sends via SendGrid", newImpl:"Better Auth email verification flow; signed token (jose) with exp claim; no DB storage needed; delivery via Queue → SendGrid Worker", status:"ba", risk:"low" },
+  { name:"Password management", sub:"Set, change, forgot password", cat:"Account", old:"bcrypt in Rails, Postgres credentials table", newImpl:"Better Auth email/password plugin (Argon2id); PlanetScale credentials table; reset token as stateless signed JWT", status:"ba", risk:"low" },
+  { name:"Account deletion", sub:"GDPR / user-initiated purge", cat:"Account", old:"Rails soft/hard delete, Sidekiq for async cleanup", newImpl:"Better Auth account plugin hard-deletes PlanetScale rows, emits account-purged SET via Queue", status:"ba", risk:"low" },
+  { name:"SP partner portal / registry", sub:"Agency app onboarding", cat:"Account", old:"Rails admin app, SP config in Postgres", newImpl:"Admin Worker with Better Auth; SP config in PlanetScale service_providers table; cert upload to R2", status:"custom", risk:"med" },
+  { name:"Rate limiting", sub:"Per-IP and per-user limits", cat:"Infra", old:"Rack::Attack middleware + Redis counters", newImpl:"CF WAF rules at edge (IP-level) + Better Auth built-in rate limiter with per-endpoint config", status:"ba", risk:"low" },
+  { name:"Audit log", sub:"FedRAMP immutable event trail", cat:"Infra", old:"Postgres identity_events table + S3 export via Sidekiq", newImpl:"PlanetScale append-only identity_events table (sharded on user_id); Queue consumer streams to R2 (JSON Lines)", status:"custom", risk:"low" },
+  { name:"Key rotation", sub:"JWKS signing key lifecycle", cat:"Infra", old:"Manual rake task, keys in encrypted Postgres + env vars", newImpl:"Workers Secrets for active key; R2 for key archive; KV for JWKS cache; Cron Trigger Worker", status:"custom", risk:"med" },
+  { name:"Session management", sub:"Multi-device, cross-SP sessions", cat:"Infra", old:"Redis sessions with server-side cookie", newImpl:"Better Auth session layer — Durable Objects for auth flow state, KV for session storage, co-located with user, alarm-based TTL expiry", status:"ba", risk:"low" },
+  { name:"Multi-language UI", sub:"English, Spanish, French", cat:"Infra", old:"Rails i18n with locale files", newImpl:"Worker reads locale param / Accept-Language header; i18n strings in KV or bundled JSON", status:"custom", risk:"low" },
+  { name:"Background jobs / async", sub:"Email delivery, SET dispatch, cleanup", cat:"Infra", old:"Sidekiq + Redis queue", newImpl:"CF Queues — producers write from auth Workers; consumers are separate Workers with retry logic", status:"custom", risk:"low" },
+  { name:"Observability", sub:"Metrics, traces, error tracking", cat:"Infra", old:"Datadog APM + custom Rails instrumentation", newImpl:"CF Workers Analytics + OpenTelemetry via @microlabs/otel-cf-workers; tail to Datadog or Baselime", status:"custom", risk:"low" }
+];
+
+const statusMeta = {
+  ba:     { label:"better-auth", cls:"badge-ba"     },
+  vendor: { label:"vendor",      cls:"badge-vendor"  },
+  custom: { label:"custom",      cls:"badge-custom"  }
+};
+
+let currentCat = 'all';
+let riskFilter = false;
+
+function renderTable() {
+  let filtered = currentCat === 'all' ? [...rows] : rows.filter(r => r.cat === currentCat);
+  if (riskFilter) filtered = filtered.filter(r => r.risk === 'high');
+
+  document.getElementById('tbody').innerHTML = filtered.map(r => {
+    const s = statusMeta[r.status];
+    const riskCls = r.risk === 'low' ? 'risk-low' : r.risk === 'med' ? 'risk-med' : 'risk-high';
+    const riskLabel = r.risk === 'low' ? 'Low' : r.risk === 'med' ? 'Med' : 'High';
+    return `<tr class="data-row">
+      <td><div class="feature-name">${r.name}</div><div class="feature-sub">${r.sub}</div></td>
+      <td><span class="cat-pill">${r.cat}</span></td>
+      <td>${r.old}</td>
+      <td>${r.newImpl}</td>
+      <td><span class="badge ${s.cls}">${s.label}</span></td>
+      <td><span class="${riskCls}">${riskLabel}</span></td>
+    </tr>`;
+  }).join('');
+
+  const all = filtered;
+  const counts = { ba:0, vendor:0, custom:0 };
+  all.forEach(r => counts[r.status]++);
+  const high = all.filter(r => r.risk === 'high').length;
+
+  document.getElementById('summary').innerHTML = `
+    <div class="sum-card"><div class="sum-num">${all.length}</div><div class="sum-label">features shown</div></div>
+    <div class="sum-card"><div class="sum-num" style="color:#1a6fd4">${counts.ba}</div><div class="sum-label">better-auth</div></div>
+    <div class="sum-card"><div class="sum-num" style="color:#534ab7">${counts.vendor}</div><div class="sum-label">vendor</div></div>
+    <div class="sum-card"><div class="sum-num" style="color:#4a5260">${counts.custom}</div><div class="sum-label">custom</div></div>
+    <div class="sum-card"><div class="sum-num" style="color:${high > 0 ? '#c0392b':'#0a8c68'}">${high}</div><div class="sum-label">high risk</div></div>
+  `;
+}
+
+function filter(cat) {
+  currentCat = cat;
+  riskFilter = false;
+  document.getElementById('risk-btn').classList.remove('active');
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.startsWith(cat === 'all' ? 'All' : cat));
+  });
+  renderTable();
+}
+
+function filterRisk(level) {
+  riskFilter = !riskFilter;
+  currentCat = 'all';
+  document.getElementById('risk-btn').classList.toggle('active', riskFilter);
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', riskFilter ? b === document.getElementById('risk-btn') : b.textContent.startsWith('All'));
+  });
+  renderTable();
+}
+
+renderTable();
+</script>
+</body>
+</html>

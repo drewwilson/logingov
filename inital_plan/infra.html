@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infrastructure — Login.gov Modern Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f7f5;
+    --bg2: #ffffff;
+    --bg3: #f0ede8;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #1a1c1e;
+    --text2: #4a5260;
+    --text3: #8a919c;
+    --accent: #1a6fd4;
+    --accent2: #0a8c68;
+    --accent3: #b86e00;
+    --danger: #c0392b;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(248,247,245,0.94);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; height: 56px;
+  }
+  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .nav-logo { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .nav-logo svg { width: 16px; height: 16px; }
+  .nav-title { font-family: var(--mono); font-size: 13px; color: var(--text); letter-spacing: 0.02em; }
+  .nav-title span { color: var(--accent); }
+  .nav-links { display: flex; align-items: center; gap: 4px; }
+  .nav-links a { font-size: 13px; color: var(--text2); text-decoration: none; padding: 6px 12px; border-radius: 6px; transition: all 0.15s; font-family: var(--mono); }
+  .nav-links a:hover { color: var(--text); background: var(--bg3); }
+  .nav-links a.active { color: var(--accent); background: rgba(74,158,255,0.08); }
+  .nav-badge { font-family: var(--mono); font-size: 11px; background: rgba(74,158,255,0.12); color: var(--accent); padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(26,111,212,0.2); }
+
+  .page-header {
+    padding: 48px 32px 0;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; color: var(--accent2);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .eyebrow::before { content: ''; display: inline-block; width: 20px; height: 1px; background: var(--accent2); }
+  h1 { font-size: clamp(24px, 3vw, 36px); font-weight: 300; letter-spacing: -0.02em; color: var(--text); margin-bottom: 12px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .page-desc { font-size: 14px; color: var(--text2); max-width: 560px; font-weight: 300; margin-bottom: 36px; }
+
+  /* LAYER LEGEND */
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    padding: 0 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* DIAGRAM CANVAS */
+  .diagram-wrap {
+    padding: 0 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+    overflow-x: auto;
+  }
+
+  .diagram {
+    min-width: 760px;
+    width: 100%;
+  }
+
+  /* LAYER ROWS */
+  .layer {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1px;
+  }
+
+  .layer-label {
+    width: 72px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 14px;
+  }
+
+  .layer-label-text {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    writing-mode: horizontal-tb;
+  }
+
+  .layer-content {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    min-height: 80px;
+    align-items: stretch;
+    position: relative;
+  }
+
+  .layer-content.edge-layer { border-color: rgba(85,93,102,0.4); }
+  .layer-content.core-layer { border-color: rgba(26,111,212,0.18); background: rgba(26,111,212,0.03); }
+  .layer-content.service-layer { border-color: rgba(10,140,104,0.18); background: rgba(10,140,104,0.03); }
+  .layer-content.storage-layer { border-color: rgba(184,110,0,0.18); background: rgba(184,110,0,0.03); }
+  .layer-content.infra-layer { border-color: rgba(83,74,183,0.2); background: rgba(83,74,183,0.03); }
+
+  /* NODES */
+  .node {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    cursor: default;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .node:hover {
+    border-color: var(--border2);
+    transform: translateY(-1px);
+    z-index: 2;
+  }
+
+  .node.n-gray { border-color: rgba(85,93,102,0.5); }
+  .node.n-blue { border-color: rgba(26,111,212,0.3); background: rgba(26,111,212,0.05); }
+  .node.n-teal { border-color: rgba(10,140,104,0.3); background: rgba(10,140,104,0.05); }
+  .node.n-amber { border-color: rgba(184,110,0,0.3); background: rgba(184,110,0,0.05); }
+  .node.n-purple { border-color: rgba(83,74,183,0.3); background: rgba(83,74,183,0.05); }
+  .node.n-coral { border-color: rgba(192,57,43,0.3); background: rgba(192,57,43,0.05); }
+
+  .node-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .node-sub {
+    font-size: 11px;
+    color: var(--text3);
+    line-height: 1.4;
+  }
+
+  .node.n-blue .node-name { color: #1a6fd4; }
+  .node.n-teal .node-name { color: #0a8c68; }
+  .node.n-amber .node-name { color: #b86e00; }
+  .node.n-purple .node-name { color: #534ab7; }
+  .node.n-coral .node-name { color: #b84020; }
+
+  /* CONNECTOR ARROWS */
+  .connectors {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    margin: 0 72px 0 72px;
+    position: relative;
+  }
+  .connector-line {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 1px;
+    background: var(--border2);
+  }
+  .conn-main {
+    left: calc(50% - 1px);
+    width: 2px;
+    height: 24px;
+    top: 0;
+    transform: none;
+    background: var(--border2);
+    border-radius: 1px;
+  }
+  .conn-arrow {
+    display: flex;
+    justify-content: center;
+    height: 24px;
+    align-items: flex-end;
+    margin-left: 72px;
+  }
+  .conn-arrow svg { color: var(--text3); }
+
+  /* TWO-COL CONTENT IN LAYER */
+  .node-wide { flex: 2; }
+  .node-narrow { flex: 1; }
+  .col-group { display: flex; gap: 6px; flex: 2; }
+
+  /* DETAIL SECTION */
+  .detail-section {
+    padding: 40px 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 24px;
+  }
+  .detail-card {
+    background: var(--bg2);
+    padding: 20px;
+    transition: background 0.15s;
+  }
+  .detail-card:hover { background: var(--bg3); }
+  .detail-card-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+    font-size: 16px;
+  }
+  .detail-card-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .detail-card-desc {
+    font-size: 12px;
+    color: var(--text3);
+    line-height: 1.55;
+  }
+  code { font-family: var(--mono); font-size: 11px; background: var(--bg3); color: var(--accent2); padding: 2px 5px; border-radius: 3px; border: 1px solid var(--border); }
+
+  h2 { font-size: 18px; font-weight: 400; letter-spacing: -0.01em; }
+  h2 em { font-style: normal; color: var(--accent2); }
+  .section-header { display: flex; align-items: baseline; gap: 12px; }
+  .section-num { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: 0.08em; }
+
+  .callout {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    background: var(--bg2);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin: 24px 0;
+  }
+  .callout.amber { border-left-color: var(--accent3); }
+  .callout-title { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 6px; letter-spacing: 0.04em; }
+  .callout.amber .callout-title { color: var(--accent3); }
+  .callout-text { font-size: 13px; color: var(--text2); line-height: 1.65; }
+
+  .divider { height: 1px; background: var(--border); max-width: 1100px; margin: 0 auto; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1100px; margin: 0 auto; padding-bottom: 60px;
+  }
+  .footer-left { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+  .footer-left span { color: var(--accent); }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-up { animation: fadeUp 0.45s ease forwards; }
+  .delay-1 { animation-delay: 0.08s; opacity: 0; }
+  .delay-2 { animation-delay: 0.16s; opacity: 0; }
+  .delay-3 { animation-delay: 0.24s; opacity: 0; }
+
+  @media (max-width: 640px) {
+    nav { padding: 0 16px; }
+    .page-header, .legend, .diagram-wrap, .detail-section { padding-left: 16px; padding-right: 16px; }
+    .detail-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html">
+    <div class="nav-logo">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="6" width="12" height="9" rx="1.5" stroke="#ffffff" stroke-width="1.5"/>
+        <path d="M5 6V4.5a3 3 0 016 0V6" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="8" cy="10.5" r="1.5" fill="#ffffff"/>
+      </svg>
+    </div>
+    <span class="nav-title">login<span>.gov</span> / modern-stack</span>
+  </a>
+  <div class="nav-links">
+    <a href="index.html">Overview</a>
+    <a href="infra.html" class="active">Infrastructure</a>
+    <a href="coverage.html">Coverage</a>
+    <a href="database.html">Database</a>
+    <span class="nav-badge">Draft v0.1</span>
+  </div>
+</nav>
+
+<div class="page-header fade-up">
+  <div class="eyebrow">Cloudflare-native deployment</div>
+  <h1>Infrastructure <em>architecture</em></h1>
+  <p class="page-desc">All compute runs on Cloudflare's global network. No VMs, no Kubernetes, no cold starts. The auth hot path never touches a primary database region.</p>
+</div>
+
+<div class="legend fade-up delay-1">
+  <div class="legend-item"><div class="legend-dot" style="background:#a0a8b4"></div> Edge / network</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#1a6fd4"></div> Auth core</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0a8c68"></div> Services</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#b86e00"></div> Storage</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#534ab7"></div> Infrastructure</div>
+</div>
+
+<div class="diagram-wrap fade-up delay-2">
+  <div class="diagram">
+
+    <!-- EDGE LAYER -->
+    <div class="layer">
+      <div class="layer-label"><span class="layer-label-text">Edge</span></div>
+      <div class="layer-content edge-layer">
+        <div class="node n-gray">
+          <div class="node-name">Cloudflare WAF</div>
+          <div class="node-sub">DDoS, rate limit, IP rules at network edge</div>
+        </div>
+        <div class="node n-gray">
+          <div class="node-name">Anycast / GeoDNS</div>
+          <div class="node-sub">Routes to nearest of 300+ PoPs globally</div>
+        </div>
+        <div class="node n-gray">
+          <div class="node-name">CDN / KV cache</div>
+          <div class="node-sub">JWKS, SP configs, static assets served at edge</div>
+        </div>
+        <div class="node n-gray">
+          <div class="node-name">mTLS termination</div>
+          <div class="node-sub">PIV/CAC client cert extraction for x509 scope</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARROW -->
+    <div style="height:14px; display:flex; padding-left:72px; align-items:center; padding-left:86px;">
+      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><line x1="6" y1="0" x2="6" y2="10" stroke="#c0bdb8" stroke-width="1"/><path d="M2 7l4 5 4-5" stroke="#c0bdb8" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- AUTH CORE LAYER -->
+    <div class="layer">
+      <div class="layer-label"><span class="layer-label-text">Auth core</span></div>
+      <div class="layer-content core-layer">
+        <div class="node n-blue">
+          <div class="node-name">Better Auth</div>
+          <div class="node-sub">Auth framework — sessions, MFA, passkeys, OIDC provider, rate limiting</div>
+        </div>
+        <div class="node n-blue">
+          <div class="node-name">OIDC / OAuth2 Worker</div>
+          <div class="node-sub">Hono router — /authorize, /token, /userinfo, /.well-known/*</div>
+        </div>
+        <div class="node n-blue">
+          <div class="node-name">SAML Bridge Worker</div>
+          <div class="node-sub">Thin adapter — translates AuthnRequest to OIDC flow</div>
+        </div>
+        <div class="node n-blue">
+          <div class="node-name">IAL / AAL Evaluator</div>
+          <div class="node-sub">Assurance level check, deprecated ACR value mapping</div>
+        </div>
+        <div class="node n-teal">
+          <div class="node-name">Durable Objects</div>
+          <div class="node-sub">Per-session state, co-located with user, alarm TTL</div>
+        </div>
+        <div class="node n-teal">
+          <div class="node-name">Key Management</div>
+          <div class="node-sub">JWKS rotation, Workers Secrets, Cron Trigger</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARROW -->
+    <div style="height:14px; display:flex; padding-left:86px; align-items:center;">
+      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><line x1="6" y1="0" x2="6" y2="10" stroke="#c0bdb8" stroke-width="1"/><path d="M2 7l4 5 4-5" stroke="#c0bdb8" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- SERVICES LAYER -->
+    <div class="layer">
+      <div class="layer-label"><span class="layer-label-text">Services</span></div>
+      <div class="layer-content service-layer">
+        <div class="node n-teal">
+          <div class="node-name">Identity Proofing Worker</div>
+          <div class="node-sub">IAL2 — Persona API for doc + facial match</div>
+        </div>
+        <div class="node n-teal">
+          <div class="node-name">MFA Worker</div>
+          <div class="node-sub">TOTP, WebAuthn, SMS OTP via Twilio</div>
+        </div>
+        <div class="node n-teal">
+          <div class="node-name">RISC / SET Worker</div>
+          <div class="node-sub">Inbound fraud events, outbound lifecycle SETs</div>
+        </div>
+        <div class="node n-teal">
+          <div class="node-name">Account Worker</div>
+          <div class="node-sub">Registration, email mgmt, password reset</div>
+        </div>
+        <div class="node n-teal">
+          <div class="node-name">CF Queues</div>
+          <div class="node-sub">Email delivery, SET dispatch, async cleanup jobs</div>
+        </div>
+        <div class="node n-coral">
+          <div class="node-name">Risk Engine</div>
+          <div class="node-sub">Fraud signals, rate limits, step-up triggers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARROW -->
+    <div style="height:14px; display:flex; padding-left:86px; align-items:center;">
+      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><line x1="6" y1="0" x2="6" y2="10" stroke="#c0bdb8" stroke-width="1"/><path d="M2 7l4 5 4-5" stroke="#c0bdb8" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- STORAGE LAYER -->
+    <div class="layer">
+      <div class="layer-label"><span class="layer-label-text">Storage</span></div>
+      <div class="layer-content storage-layer">
+        <div class="node n-amber node-wide">
+          <div class="node-name">PlanetScale (Vitess / MySQL 8)</div>
+          <div class="node-sub">Users, credentials, SPs, auth codes, audit log — multi-region read replicas via Hyperdrive</div>
+        </div>
+        <div class="node n-amber">
+          <div class="node-name">Cloudflare KV</div>
+          <div class="node-sub">SP config cache, JWKS, feature flags, OTP codes</div>
+        </div>
+        <div class="node n-amber">
+          <div class="node-name">Cloudflare R2</div>
+          <div class="node-sub">Audit log archive (JSON Lines), proofing docs, key backups</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARROW -->
+    <div style="height:14px; display:flex; padding-left:86px; align-items:center;">
+      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><line x1="6" y1="0" x2="6" y2="10" stroke="#c0bdb8" stroke-width="1"/><path d="M2 7l4 5 4-5" stroke="#c0bdb8" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- INFRA LAYER -->
+    <div class="layer">
+      <div class="layer-label"><span class="layer-label-text">Infra</span></div>
+      <div class="layer-content infra-layer">
+        <div class="node n-purple">
+          <div class="node-name">Wrangler / CI</div>
+          <div class="node-sub">Deploy pipeline, PlanetScale deploy requests, secret rotation</div>
+        </div>
+        <div class="node n-purple">
+          <div class="node-name">OpenTelemetry</div>
+          <div class="node-sub">Traces, metrics — tail to Datadog or Baselime</div>
+        </div>
+        <div class="node n-purple">
+          <div class="node-name">Cron Triggers</div>
+          <div class="node-sub">JWKS rotation, audit log flush, expired code cleanup</div>
+        </div>
+        <div class="node n-purple">
+          <div class="node-name">Admin Worker</div>
+          <div class="node-sub">SP onboarding portal, internal ops, partner management</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider" style="margin-top:32px"></div>
+
+<div class="detail-section fade-up delay-3">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <h2>Auth hot path — <em>zero DB reads</em></h2>
+  </div>
+  <div class="callout">
+    <div class="callout-title">Critical path optimization</div>
+    <div class="callout-text">Token validation (<code>GET /userinfo</code>, OAuth2 introspection) only touches KV (JWKS lookup) and a Durable Object (session check). PlanetScale is never read on the happy path — only on login, registration, and account changes. Better Auth's session layer uses Cloudflare KV as secondary storage so active sessions are always local to the Worker.</div>
+  </div>
+
+  <div class="detail-grid">
+    <div class="detail-card">
+      <div class="detail-card-icon" style="background:rgba(26,111,212,0.08)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#4a9eff" stroke-width="1.3"/><path d="M8 5v3l2 2" stroke="#4a9eff" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="detail-card-title">Step 1 — WAF + GeoDNS</div>
+      <div class="detail-card-desc">Request hits Cloudflare edge. WAF rules apply. Routed to nearest PoP. For <code>/authorize</code>, PKCE or JWT client auth is validated immediately in the Worker.</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-icon" style="background:rgba(10,140,104,0.08)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="6" width="12" height="8" rx="1.5" stroke="#00d4a0" stroke-width="1.3"/><path d="M5 6V4.5a3 3 0 016 0V6" stroke="#00d4a0" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="detail-card-title">Step 2 — Durable Object session</div>
+      <div class="detail-card-desc">Auth state lives in a DO. PKCE challenge, nonce, requested scopes, IAL/AAL target stored atomically. DO runs in the same region as the user's request.</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-icon" style="background:rgba(184,110,0,0.08)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 5h10M3 8h7M3 11h5" stroke="#f59e2a" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="detail-card-title">Step 3 — Token issuance</div>
+      <div class="detail-card-desc">On code exchange, Better Auth resolves the auth code from PlanetScale (single-use enforced via transaction, routed via Hyperdrive). RS256 id_token signed with <code>jose</code>. Access token written to KV with TTL.</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-icon" style="background:rgba(83,74,183,0.08)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="#7f77dd" stroke-width="1.3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="#7f77dd" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="detail-card-title">Step 4 — Userinfo</div>
+      <div class="detail-card-desc">Bearer token validated against KV. User attributes fetched from PlanetScale nearest read replica via Hyperdrive. Claims scoped to SP's requested scopes. Pairwise sub computed in-memory via Better Auth's custom claims hook.</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-icon" style="background:rgba(10,140,104,0.08)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 8l3 3 5-5" stroke="#00d4a0" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="8" r="6" stroke="#00d4a0" stroke-width="1.3"/></svg>
+      </div>
+      <div class="detail-card-title">Step 5 — Logout</div>
+      <div class="detail-card-desc">Better Auth invalidates the session (DO alarm cancelled + KV cleared). <code>id_token_hint</code> validated. Post-logout redirect URI checked against PlanetScale SP config. RISC <code>session-revoked</code> queued.</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-icon" style="background:rgba(192,57,43,0.08)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v5M8 11v1" stroke="#e05252" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="8" r="6" stroke="#e05252" stroke-width="1.3"/></svg>
+      </div>
+      <div class="detail-card-title">Error + fraud paths</div>
+      <div class="detail-card-desc">Inbound RISC SETs handled by a Queue consumer Worker — fraud signals trigger Better Auth session invalidation + PlanetScale flag asynchronously, without blocking the hot path.</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="detail-section">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <h2>PlanetScale schema — <em>key tables</em></h2>
+  </div>
+  <div class="callout amber">
+    <div class="callout-title">Design principles</div>
+    <div class="callout-text">All PII fields (<code>ssn</code>, <code>birthdate</code>, <code>address</code>, phone) are encrypted at the application layer with AES-256-GCM before writing to PlanetScale — separate from at-rest encryption. Better Auth generates the core schema (<code>user</code>, <code>session</code>, <code>passkey</code>, <code>twoFactor</code>) via <code>npx auth generate</code>; login.gov-specific tables are defined alongside in Drizzle. Referential integrity is enforced in Worker transactions rather than FK constraints (Vitess limitation). Audit log rows are append-only by policy and never updated or deleted.</div>
+  </div>
+  <div class="detail-grid" style="grid-template-columns: repeat(2, 1fr)">
+    <div class="detail-card">
+      <div class="detail-card-title" style="margin-bottom:10px">users <span style="font-weight:300;color:var(--text3)">(Better Auth core)</span></div>
+      <div class="detail-card-desc" style="font-family:var(--mono); line-height:1.9; font-size:11px">
+        id VARCHAR(36) PK &nbsp;— UUID v7<br>
+        email VARCHAR(255) UNIQUE<br>
+        email_verified_at DATETIME(6)<br>
+        ial TINYINT &nbsp;— 1 or 2<br>
+        locked_at DATETIME(6)<br>
+        locale VARCHAR(8)<br>
+        <span style="color:#1a6fd4">ssn, birthdate, address, phone</span><br>
+        <span style="color:var(--text3)">↑ AES-256-GCM encrypted blobs</span><br>
+        verified_at DATETIME(6)<br>
+        created_at / updated_at
+      </div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-title" style="margin-bottom:10px">credentials <span style="font-weight:300;color:var(--text3)">(Better Auth passkey / twoFactor)</span></div>
+      <div class="detail-card-desc" style="font-family:var(--mono); line-height:1.9; font-size:11px">
+        id VARCHAR(36) PK<br>
+        user_id VARCHAR(36)<br>
+        type VARCHAR(32) &nbsp;— password | webauthn | totp | backup<br>
+        data TEXT &nbsp;— encrypted JSON blob<br>
+        last_used_at DATETIME(6)<br>
+        created_at DATETIME(6)<br><br>
+        <span style="color:var(--text3)">INDEX on user_id</span>
+      </div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-title" style="margin-bottom:10px">service_providers</div>
+      <div class="detail-card-desc" style="font-family:var(--mono); line-height:1.9; font-size:11px">
+        id VARCHAR(512) PK &nbsp;— issuer URI<br>
+        name VARCHAR(255)<br>
+        ial_max / aal_max TINYINT<br>
+        redirect_uris TEXT &nbsp;— JSON array<br>
+        public_key TEXT &nbsp;— PEM<br>
+        saml_metadata_url TEXT<br>
+        push_notification_url TEXT<br>
+        created_at DATETIME(6)
+      </div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-card-title" style="margin-bottom:10px">identity_events (append-only)</div>
+      <div class="detail-card-desc" style="font-family:var(--mono); line-height:1.9; font-size:11px">
+        id VARCHAR(36) PK<br>
+        user_id VARCHAR(36)<br>
+        sp_id VARCHAR(512)<br>
+        event_type VARCHAR(64)<br>
+        ial / aal TINYINT<br>
+        ip VARCHAR(45)<br>
+        metadata JSON<br>
+        created_at DATETIME(6)<br>
+        <span style="color:var(--text3)">Sharded on user_id · streamed to R2</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-left">login<span>.gov</span> / modern-stack — internal proposal</div>
+  <div class="nav-links">
+    <a href="index.html" style="font-family:var(--mono); font-size:12px; color:var(--text3); text-decoration:none;">← overview</a>
+    <a href="coverage.html" style="font-family:var(--mono); font-size:12px; color:var(--text3); text-decoration:none;">coverage →</a>
+  </div>
+</footer>
+
+</body>
+</html>

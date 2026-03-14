@@ -1,0 +1,16 @@
+{
+  "name": "logingov-migration-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "migrate": "node migrate.js",
+    "migrate:dry-run": "node migrate.js --dry-run",
+    "reset": "node migrate.js --reset"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.1",
+    "mysql2": "^3.19.1",
+    "pg": "^8.13.0"
+  }
+}

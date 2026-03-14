@@ -1,0 +1,142 @@
+name = "logingov"
+main = "packages/auth-core/src/index.ts"
+compatibility_date = "2025-03-10"
+compatibility_flags = ["nodejs_compat"]
+
+# ── KV Namespaces ────────────────────────────────────────────
+[[kv_namespaces]]
+binding = "KV_SESSIONS"
+id = "local"                             # session token → user lookup
+
+[[kv_namespaces]]
+binding = "KV_SP_CONFIG"
+id = "local"                             # service provider config cache
+
+[[kv_namespaces]]
+binding = "KV_JWKS"
+id = "local"                             # JWKS cache (1hr TTL)
+
+[[kv_namespaces]]
+binding = "KV_FLAGS"
+id = "local"                             # feature flags
+
+[[kv_namespaces]]
+binding = "KV_OTP"
+id = "local"                             # OTP codes (10min TTL)
+
+[[kv_namespaces]]
+binding = "KV_RATE_LIMIT"
+id = "local"                             # rate limit counters
+
+# ── R2 Buckets ───────────────────────────────────────────────
+[[r2_buckets]]
+binding = "R2_AUDIT"
+bucket_name = "logingov-audit"           # audit log archive (JSON Lines)
+
+[[r2_buckets]]
+binding = "R2_PROOFING"
+bucket_name = "logingov-proofing"        # identity proofing documents
+
+[[r2_buckets]]
+binding = "R2_KEYS"
+bucket_name = "logingov-keys"            # key archive / backup
+
+# ── Queues ───────────────────────────────────────────────────
+[[queues.producers]]
+binding = "QUEUE_EMAIL"
+queue = "logingov-email"
+
+[[queues.producers]]
+binding = "QUEUE_SET"
+queue = "logingov-set"                   # outbound Security Event Tokens
+
+[[queues.producers]]
+binding = "QUEUE_AUDIT"
+queue = "logingov-audit"                 # audit log streaming to R2
+
+[[queues.producers]]
+binding = "QUEUE_FRAUD"
+queue = "logingov-fraud"                 # inbound fraud action processing
+
+[[queues.consumers]]
+queue = "logingov-email"
+max_batch_size = 10
+max_retries = 3
+
+[[queues.consumers]]
+queue = "logingov-set"
+max_batch_size = 10
+max_retries = 5
+
+[[queues.consumers]]
+queue = "logingov-audit"
+max_batch_size = 100
+max_batch_timeout = 30
+
+[[queues.consumers]]
+queue = "logingov-fraud"
+max_batch_size = 1
+max_retries = 3
+
+# ── Service Bindings (Worker-to-Worker) ──────────────────────
+[[services]]
+binding = "AUTH_CORE"
+service = "logingov"                     # auth-core is the main Worker
+
+[[services]]
+binding = "MFA_WORKER"
+service = "logingov-mfa"
+
+[[services]]
+binding = "SAML_BRIDGE"
+service = "logingov-saml"
+
+[[services]]
+binding = "IDENTITY_PROOFING"
+service = "logingov-proofing"
+
+[[services]]
+binding = "SECURITY_EVENTS"
+service = "logingov-security-events"
+
+[[services]]
+binding = "ACCOUNT_WORKER"
+service = "logingov-account"
+
+[[services]]
+binding = "ADMIN_WORKER"
+service = "logingov-admin"
+
+[[services]]
+binding = "INFRA_WORKER"
+service = "logingov-infra"
+
+# ── Durable Objects ──────────────────────────────────────────
+[durable_objects]
+bindings = [
+  { name = "SESSION_DO", class_name = "SessionDO" },
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["SessionDO"]
+
+# ── Cron Triggers ────────────────────────────────────────────
+[triggers]
+crons = [
+  "0 */1 * * *",     # JWKS rotation check (hourly)
+  "*/5 * * * *",     # expired code cleanup (every 5 min)
+  "0 0 * * *",       # audit log daily flush
+]
+
+# ── Hyperdrive (PlanetScale) ────────────────────────────────
+# Hyperdrive is Postgres-only; local dev uses DATABASE_URL from .dev.vars instead.
+# Production/staging environments define hyperdrive in their env blocks.
+
+# ── Environment: Staging ─────────────────────────────────────
+[env.staging]
+name = "logingov-staging"
+
+# ── Environment: Production ──────────────────────────────────
+[env.production]
+name = "logingov-production"

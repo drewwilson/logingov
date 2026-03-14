@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/session-do" },
+    { "path": "packages/infra" },
+    { "path": "packages/auth-core" },
+    { "path": "packages/account" },
+    { "path": "packages/admin" },
+    { "path": "packages/mfa" },
+    { "path": "packages/saml-bridge" },
+    { "path": "packages/identity-proofing" },
+    { "path": "packages/security-events" }
+  ],
+  "include": []
+}

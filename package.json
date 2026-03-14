@@ -1,0 +1,36 @@
+{
+  "name": "logingov",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Login.gov modern stack — Cloudflare Workers + Better Auth",
+  "author": {
+    "name": "Drew Wilson",
+    "email": "drew@drewwilson.com"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "wrangler dev",
+    "dev:db": "node scripts/ps-proxy.js",
+    "dev:mfa": "wrangler dev --main packages/mfa/src/index.ts --name logingov-mfa",
+    "dev:account": "wrangler dev --main packages/account/src/index.ts --name logingov-account",
+    "dev:admin": "wrangler dev --main packages/admin/src/index.ts --name logingov-admin",
+    "dev:saml": "wrangler dev --main packages/saml-bridge/src/index.ts --name logingov-saml",
+    "dev:proofing": "wrangler dev --main packages/identity-proofing/src/index.ts --name logingov-proofing",
+    "dev:security": "wrangler dev --main packages/security-events/src/index.ts --name logingov-security-events",
+    "dev:infra": "wrangler dev --main packages/infra/src/index.ts --name logingov-infra",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "lint": "echo TODO"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250312.0",
+    "@microlabs/otel-cf-workers": "1.0.0-rc.52",
+    "@opentelemetry/api": "^1.9.0",
+    "mysql2": "^3.19.1",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "wrangler": "^4.73.0"
+  },
+  "packageManager": "pnpm@10.9.0+sha512.0486e394640d3c1fb3c9d43d49cf92879ff74f8516959c235308f5a8f62e2e19528a65cdc2a3058f587cde71eba3d5b56327c8c33a97e4c4051ca48a10ca2d5f"
+}
