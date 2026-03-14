@@ -39,9 +39,16 @@ export { enqueue, enqueueBatch } from "./queue/producer.js";
 // Audit consumer
 export { AuditConsumer, auditConsumer } from "./consumers/audit-consumer.js";
 
-// Key rotation
+// Email/SMS consumer
+export { EmailConsumer, emailConsumer } from "./consumers/email-consumer.js";
+
+// SMS (Twilio)
+export { sendSMS } from "./sms/twilio.js";
+
+// Cron jobs
 export { handleKeyRotation, getPublicJWKS, getCurrentSigningKid } from "./cron/key-rotation.js";
 export type { JWK, JWKS } from "./cron/key-rotation.js";
+export { handleCleanup } from "./cron/cleanup.js";
 
 // Risk engine
 export { evaluateRisk, recordAccountLock } from "./risk/engine.js";

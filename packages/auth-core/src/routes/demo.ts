@@ -7,6 +7,8 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
 import type { Env } from "@logingov/shared";
+import { serviceProviders } from "@logingov/shared";
+import { getDb } from "@logingov/shared/db";
 
 const demoRoute = new Hono<{ Bindings: Env }>();
 
@@ -276,7 +278,6 @@ demoRoute.get("/demo", async (c) => {
             <button class="btn-navy btn-block mb" onclick="fetchDiscovery()">Fetch Discovery Document</button>
             <button class="btn-navy btn-block mb" onclick="fetchCerts()">Fetch JWKS</button>
             <button class="btn-navy btn-block mb" onclick="testAuthorize()">Test /authorize</button>
-            <button class="btn-navy btn-block" onclick="fetchHealth()">Health Check (all workers)</button>
           </div>
         </div>
       </div>
@@ -665,37 +666,6 @@ demoRoute.get("/demo", async (c) => {
       }
     }
 
-    async function fetchHealth() {
-      log('Checking worker health...', 'info');
-      const t0 = performance.now();
-      try {
-        const res = await fetch('/health');
-        const data = await res.json();
-        const ms = Math.round(performance.now() - t0);
-        log('auth-core: ' + (data.ok ? '\\u2713 online' : '\\u2717 error') + ' (' + ms + 'ms)', data.ok ? 'ok' : 'err');
-      } catch (e) {
-        log('auth-core: \\u2717 ' + e.message, 'err');
-      }
-
-      // Check other workers via service binding proxy
-      // Note: these only work if each worker is running its own wrangler dev process
-      const workers = ['MFA_WORKER', 'SAML_BRIDGE', 'SECURITY_EVENTS', 'IDENTITY_PROOFING', 'ACCOUNT_WORKER', 'ADMIN_WORKER', 'INFRA_WORKER'];
-      for (const w of workers) {
-        try {
-          const t1 = performance.now();
-          const res = await fetch('/demo/proxy/' + w + '/health');
-          const ms2 = Math.round(performance.now() - t1);
-          if (res.ok) {
-            const data = await res.json();
-            log(w + ': \\u2713 online (' + ms2 + 'ms)', 'ok');
-          } else {
-            log(w + ': \\u2717 ' + res.status + ' (not running)', 'err');
-          }
-        } catch (e) {
-          log(w + ': \\u25CB not connected (run its wrangler dev separately)', 'dim');
-        }
-      }
-    }
 
     // ── Init ─────────────────────────────────────────────────────
     // Check if returning from an OAuth callback
@@ -763,5 +733,105 @@ demoRoute.all("/demo/proxy/:binding/*", async (c) => {
   });
 });
 
+
+/**
+ * Seed the demo Service Provider into the database.
+ * Creates the example SP used by the demo page's OIDC test flow.
+ * Idempotent — skips if already exists.
+ */
+demoRoute.post("/demo/seed-sp", async (c) => {
+  const db = getDb(c.env);
+  const spId = "urn:gov:gsa:openidconnect.profiles:sp:sso:example:app";
+
+  // Check if already seeded
+  const existing = await db
+    .select({ id: serviceProviders.id })
+    .from(serviceProviders)
+    .where((await import("drizzle-orm")).eq(serviceProviders.id, spId))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return c.json({ ok: true, message: "Demo SP already exists", spId });
+  }
+
+  // Generate an RSA key pair for client_assertion verification
+  const keyPair = await crypto.subtle.generateKey(
+    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    true,
+    ["sign", "verify"]
+  );
+
+  const kp = keyPair as CryptoKeyPair;
+  const publicKeyJwk = await crypto.subtle.exportKey("jwk", kp.publicKey) as JsonWebKey;
+  // Convert JWK to PEM for storage
+  const publicKeyPem = jwkToPem(publicKeyJwk);
+
+  await db.insert(serviceProviders).values({
+    id: spId,
+    name: "Example Demo App",
+    ialMax: 2,
+    aalMax: 2,
+    redirectUris: JSON.stringify(["https://example.gov/auth/callback", "http://localhost:3000/auth/callback"]),
+    publicKey: publicKeyPem,
+    samlMetadataUrl: null,
+    pushNotificationUrl: null,
+    postLogoutRedirectUris: JSON.stringify(["https://example.gov", "http://localhost:3000"]),
+    createdAt: new Date().toISOString(),
+  });
+
+  return c.json({ ok: true, message: "Demo SP seeded", spId });
+});
+
+/** Convert a JWK RSA public key to PEM format. */
+function jwkToPem(jwk: JsonWebKey): string {
+  // Build DER-encoded SubjectPublicKeyInfo from JWK n and e
+  const n = base64UrlToBytes(jwk.n!);
+  const e = base64UrlToBytes(jwk.e!);
+
+  const nEncoded = asn1Integer(n);
+  const eEncoded = asn1Integer(e);
+  const rsaPublicKey = asn1Sequence([nEncoded, eEncoded]);
+
+  // OID for rsaEncryption: 1.2.840.113549.1.1.1
+  const rsaOid = new Uint8Array([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00]);
+  const algorithmIdentifier = asn1Sequence([rsaOid]);
+
+  const bitString = new Uint8Array([0x03, ...asn1Length(rsaPublicKey.length + 1), 0x00, ...rsaPublicKey]);
+  const spki = asn1Sequence([algorithmIdentifier, bitString]);
+
+  const b64 = btoa(String.fromCharCode(...spki));
+  const lines = b64.match(/.{1,64}/g) || [];
+  return `-----BEGIN PUBLIC KEY-----\n${lines.join("\n")}\n-----END PUBLIC KEY-----`;
+}
+
+function base64UrlToBytes(b64url: string): Uint8Array {
+  const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+
+function asn1Length(length: number): Uint8Array {
+  if (length < 128) return new Uint8Array([length]);
+  if (length < 256) return new Uint8Array([0x81, length]);
+  return new Uint8Array([0x82, (length >> 8) & 0xff, length & 0xff]);
+}
+
+function asn1Integer(bytes: Uint8Array): Uint8Array {
+  // Prepend 0x00 if high bit is set (positive integer)
+  const needsPad = bytes[0] & 0x80;
+  const content = needsPad ? new Uint8Array([0x00, ...bytes]) : bytes;
+  return new Uint8Array([0x02, ...asn1Length(content.length), ...content]);
+}
+
+function asn1Sequence(items: Uint8Array[]): Uint8Array {
+  const content = new Uint8Array(items.reduce((sum, i) => sum + i.length, 0));
+  let offset = 0;
+  for (const item of items) {
+    content.set(item, offset);
+    offset += item.length;
+  }
+  return new Uint8Array([0x30, ...asn1Length(content.length), ...content]);
+}
 
 export { demoRoute };

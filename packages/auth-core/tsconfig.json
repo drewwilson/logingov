@@ -5,5 +5,15 @@
     "rootDir": "./src"
   },
   "include": ["src"],
-  "references": [{ "path": "../shared" }, { "path": "../infra" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../infra" },
+    { "path": "../session-do" },
+    { "path": "../mfa" },
+    { "path": "../account" },
+    { "path": "../saml-bridge" },
+    { "path": "../identity-proofing" },
+    { "path": "../admin" },
+    { "path": "../security-events" }
+  ]
 }

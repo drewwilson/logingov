@@ -1,0 +1,197 @@
+/**
+ * Auth Flow Orchestration — POST /api/auth-flow/complete-login, /api/auth-flow/issue-code
+ *
+ * After Better Auth authenticates the user, these routes check MFA requirements
+ * and issue OIDC authorization codes with the correct IAL/AAL/ACR claims.
+ */
+import { Hono } from "hono";
+import { getDb } from "@logingov/shared/db";
+import { eq } from "drizzle-orm";
+import type { Env } from "@logingov/shared";
+import { AppError, authCodes, credentials, uuidV7 } from "@logingov/shared";
+import type { SessionState } from "@logingov/session-do";
+
+const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+const authFlowRoute = new Hono<{ Bindings: Env }>();
+
+/**
+ * Fetch session state from a SessionDO instance.
+ */
+async function getSessionState(
+  env: Env,
+  sessionId: string
+): Promise<SessionState> {
+  const doId = env.SESSION_DO.idFromName(sessionId);
+  const stub = env.SESSION_DO.get(doId);
+
+  const res = await stub.fetch(
+    new Request("https://session-do/get", { method: "GET" })
+  );
+
+  if (!res.ok) {
+    const body = (await res.json()) as { error?: string };
+    if (body.error === "session_expired") {
+      throw new AppError("invalid_request", "Session has expired", 410);
+    }
+    throw new AppError("invalid_request", "Session not found", 404);
+  }
+
+  return (await res.json()) as SessionState;
+}
+
+/**
+ * Determine the ACR string from IAL, AAL, and facial match state.
+ */
+function determineAcr(
+  ial: 1 | 2,
+  aal: 1 | 2,
+  facialMatch?: "required" | "preferred"
+): string {
+  if (ial === 2 && facialMatch === "required") {
+    return "urn:acr.login.gov:verified-facial-match-required";
+  }
+  if (ial === 2 && aal === 2) {
+    return "urn:acr.login.gov:verified";
+  }
+  return "urn:acr.login.gov:auth-only";
+}
+
+// ── POST /api/auth-flow/complete-login ───────────────────────
+
+authFlowRoute.post("/api/auth-flow/complete-login", async (c) => {
+  const { sessionId, userId } = await c.req.json<{
+    sessionId: string;
+    userId: string;
+  }>();
+
+  if (!sessionId || !userId) {
+    throw new AppError(
+      "invalid_request",
+      "sessionId and userId are required",
+      400
+    );
+  }
+
+  const session = await getSessionState(c.env, sessionId);
+
+  // Check if MFA is required based on requested AAL
+  if (session.requestedAal >= 2) {
+    // Query available MFA methods for this user
+    const db = getDb(c.env);
+    const credentialRows = await db
+      .select({ type: credentials.type })
+      .from(credentials)
+      .where(eq(credentials.userId, userId));
+
+    // Collect unique MFA method types (exclude "password" — that's not MFA)
+    const mfaTypes = [
+      ...new Set(
+        credentialRows
+          .map((r) => r.type)
+          .filter((t) => t !== "password")
+      ),
+    ];
+
+    return c.json({
+      requiresMfa: true,
+      methods: mfaTypes,
+      sessionId,
+    });
+  }
+
+  // No MFA required — issue auth code directly
+  const ial: 1 | 2 = session.achievedIal ?? session.requestedIal;
+  const aal: 1 | 2 = 1; // No MFA performed
+  const acr = determineAcr(ial, aal, session.facialMatch);
+
+  const code = uuidV7();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + AUTH_CODE_TTL_MS);
+
+  const db = getDb(c.env);
+  await db.insert(authCodes).values({
+    code,
+    userId,
+    spId: session.spId,
+    redirectUri: session.redirectUri,
+    scopes: JSON.stringify(session.scopes),
+    codeChallenge: session.codeChallenge ?? null,
+    codeChallengeMethod: session.codeChallengeMethod ?? null,
+    nonce: session.nonce ?? null,
+    ial,
+    aal,
+    acr,
+    expiresAt: expiresAt.toISOString(),
+    createdAt: now.toISOString(),
+  });
+
+  return c.json({
+    requiresMfa: false,
+    redirectUri: session.redirectUri,
+    code,
+    state: session.state,
+  });
+});
+
+// ── POST /api/auth-flow/issue-code ───────────────────────────
+
+authFlowRoute.post("/api/auth-flow/issue-code", async (c) => {
+  const { sessionId } = await c.req.json<{ sessionId: string }>();
+
+  if (!sessionId) {
+    throw new AppError("invalid_request", "sessionId is required", 400);
+  }
+
+  const session = await getSessionState(c.env, sessionId);
+
+  // Verify MFA was completed if required
+  if (session.requestedAal >= 2 && !session.mfaVerified) {
+    throw new AppError(
+      "invalid_request",
+      "MFA verification is required but has not been completed",
+      403
+    );
+  }
+
+  if (!session.userId) {
+    throw new AppError(
+      "invalid_request",
+      "Session has no authenticated user",
+      400
+    );
+  }
+
+  const ial: 1 | 2 = session.achievedIal ?? session.requestedIal;
+  const aal: 1 | 2 = session.achievedAal ?? session.requestedAal;
+  const acr = determineAcr(ial, aal, session.facialMatch);
+
+  const code = uuidV7();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + AUTH_CODE_TTL_MS);
+
+  const db = getDb(c.env);
+  await db.insert(authCodes).values({
+    code,
+    userId: session.userId,
+    spId: session.spId,
+    redirectUri: session.redirectUri,
+    scopes: JSON.stringify(session.scopes),
+    codeChallenge: session.codeChallenge ?? null,
+    codeChallengeMethod: session.codeChallengeMethod ?? null,
+    nonce: session.nonce ?? null,
+    ial,
+    aal,
+    acr,
+    expiresAt: expiresAt.toISOString(),
+    createdAt: now.toISOString(),
+  });
+
+  return c.json({
+    redirectUri: session.redirectUri,
+    code,
+    state: session.state,
+  });
+});
+
+export { authFlowRoute };

@@ -152,9 +152,9 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
   const idTokenClaims: IdTokenClaims = {
     sub,
     aud: clientId,
-    acr: "urn:acr.login.gov:auth-only", // Default; would come from session state
-    ial: 1,
-    aal: 1,
+    acr: authCode.acr,
+    ial: authCode.ial,
+    aal: authCode.aal,
     at_hash: atHash,
   };
 

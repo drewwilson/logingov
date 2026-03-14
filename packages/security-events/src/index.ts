@@ -25,7 +25,8 @@ import { riscDiscoveryRoutes } from "./routes/risc-discovery.js";
 import { handleFraudAction } from "./consumers/fraud-handler.js";
 import { handleSETOutbound } from "./consumers/set-outbound.js";
 
-const app = new Hono<{ Bindings: Env }>();
+export const securityEventsApp = new Hono<{ Bindings: Env }>();
+const app = securityEventsApp;
 
 // ── Middleware ───────────────────────────────────────────────
 app.use("*", tracing({ serviceName: "security-events" }));
@@ -106,3 +107,7 @@ export {
   emitIdentifierChanged,
   emitIdentifierRecycled,
 } from "./consumers/set-emitters.js";
+
+// Re-export queue handlers for use by auth-core's unified queue consumer
+export { handleFraudAction } from "./consumers/fraud-handler.js";
+export { handleSETOutbound } from "./consumers/set-outbound.js";

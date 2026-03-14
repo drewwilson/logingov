@@ -84,12 +84,26 @@ export const authCodes = mysqlTable(
     codeChallenge: varchar("code_challenge", { length: 128 }),
     codeChallengeMethod: varchar("code_challenge_method", { length: 10 }),
     nonce: varchar("nonce", { length: 255 }),
+    ial: int("ial").notNull().default(1),
+    aal: int("aal").notNull().default(1),
+    acr: varchar("acr", { length: 100 }).notNull().default("urn:acr.login.gov:auth-only"),
     expiresAt: varchar("expires_at", { length: 30 }).notNull(),
     usedAt: varchar("used_at", { length: 30 }), // null = unused
     createdAt: varchar("created_at", { length: 30 }).notNull(),
   },
   (table) => [index("auth_codes_user_id_idx").on(table.userId)]
 );
+
+// ── twoFactor (Better Auth two-factor secrets) ──────────────
+// Mirrors the Better Auth twoFactor plugin table so the MFA worker
+// can look up TOTP secrets created via Better Auth's UI flow.
+
+export const twoFactor = mysqlTable("twoFactor", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  secret: text("secret").notNull(), // base32-encoded TOTP secret
+  backupCodes: text("backupCodes").notNull(),
+  userId: varchar("userId", { length: 36 }).notNull(),
+});
 
 // ── identity_events (append-only audit log) ─────────────────
 

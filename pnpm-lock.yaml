@@ -70,9 +70,27 @@ importers:
 
   packages/auth-core:
     dependencies:
+      '@logingov/account':
+        specifier: workspace:*
+        version: link:../account
+      '@logingov/admin':
+        specifier: workspace:*
+        version: link:../admin
+      '@logingov/identity-proofing':
+        specifier: workspace:*
+        version: link:../identity-proofing
       '@logingov/infra':
         specifier: workspace:*
         version: link:../infra
+      '@logingov/mfa':
+        specifier: workspace:*
+        version: link:../mfa
+      '@logingov/saml-bridge':
+        specifier: workspace:*
+        version: link:../saml-bridge
+      '@logingov/security-events':
+        specifier: workspace:*
+        version: link:../security-events
       '@logingov/session-do':
         specifier: workspace:*
         version: link:../session-do

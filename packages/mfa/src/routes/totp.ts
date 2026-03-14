@@ -7,7 +7,7 @@
 import { Hono } from "hono";
 import type { Env } from "@logingov/shared";
 import { uuidV7, encrypt, decrypt, importKey } from "@logingov/shared";
-import { credentials } from "@logingov/shared";
+import { credentials, twoFactor } from "@logingov/shared";
 import { kvGet, kvPut, KV_KEYS } from "@logingov/shared";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "@logingov/shared/db";
@@ -88,29 +88,53 @@ totp.post("/verify", loadSession(), checkMfaRateLimit(), async (c) => {
 
   const db = getDb(c.env);
 
-  // Retrieve TOTP credential
-  const [cred] = await db
-    .select()
-    .from(credentials)
-    .where(and(eq(credentials.userId, userId), eq(credentials.type, "totp")))
+  // ── Retrieve TOTP secret ──────────────────────────────────
+  // 1. Check Better Auth's twoFactor table first (secrets set up via Better Auth UI)
+  // 2. Fall back to the credentials table (secrets set up via the MFA /setup route)
+  let totpSecret: string;
+  let totpPeriod: number = TOTP_PERIOD;
+  let credentialId: string | null = null;
+  let source: "betterauth" | "credentials";
+
+  const [baRow] = await db
+    .select({ id: twoFactor.id, secret: twoFactor.secret, userId: twoFactor.userId })
+    .from(twoFactor)
+    .where(eq(twoFactor.userId, userId))
     .limit(1);
 
-  if (!cred) {
-    return c.json({ error: "totp_not_configured", message: "TOTP is not set up for this account" }, 404);
-  }
+  if (baRow) {
+    // Better Auth stores the secret as a plain base32 string
+    totpSecret = baRow.secret;
+    source = "betterauth";
+  } else {
+    // Fall back to the credentials table (encrypted JSON blob)
+    const [cred] = await db
+      .select()
+      .from(credentials)
+      .where(and(eq(credentials.userId, userId), eq(credentials.type, "totp")))
+      .limit(1);
 
-  // Decrypt secret
-  const cryptoKey = await importKey(c.env.ENCRYPTION_KEY);
-  const decryptedData = JSON.parse(await decrypt(cred.data, cryptoKey)) as {
-    secret: string;
-    algorithm: string;
-    digits: number;
-    period: number;
-  };
+    if (!cred) {
+      return c.json({ error: "totp_not_configured", message: "TOTP is not set up for this account" }, 404);
+    }
+
+    const cryptoKey = await importKey(c.env.ENCRYPTION_KEY);
+    const decryptedData = JSON.parse(await decrypt(cred.data, cryptoKey)) as {
+      secret: string;
+      algorithm: string;
+      digits: number;
+      period: number;
+    };
+
+    totpSecret = decryptedData.secret;
+    totpPeriod = decryptedData.period;
+    credentialId = cred.id;
+    source = "credentials";
+  }
 
   // Verify the TOTP code (check current window and +/- 1 window for clock drift)
   const now = Math.floor(Date.now() / 1000);
-  const isValid = await verifyTOTP(body.code, decryptedData.secret, now, decryptedData.period, c.env, userId);
+  const isValid = await verifyTOTP(body.code, totpSecret, now, totpPeriod, c.env, userId);
 
   if (!isValid) {
     const attempts = await recordFailedAttempt(c.env, userId);
@@ -127,11 +151,13 @@ totp.post("/verify", loadSession(), checkMfaRateLimit(), async (c) => {
   // Success — clear rate limit, update session DO
   await clearRateLimit(c.env, userId);
 
-  // Update last_used_at on the credential
-  await db
-    .update(credentials)
-    .set({ lastUsedAt: new Date().toISOString() })
-    .where(eq(credentials.id, cred.id));
+  // Update last_used_at on the credential (only if sourced from credentials table)
+  if (source === "credentials" && credentialId) {
+    await db
+      .update(credentials)
+      .set({ lastUsedAt: new Date().toISOString() })
+      .where(eq(credentials.id, credentialId));
+  }
 
   // Mark session as MFA-verified (with optional device remembering)
   await updateSessionDO(c.env, sessionId, {

@@ -7,7 +7,13 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@logingov/account": "workspace:*",
+    "@logingov/admin": "workspace:*",
+    "@logingov/identity-proofing": "workspace:*",
     "@logingov/infra": "workspace:*",
+    "@logingov/mfa": "workspace:*",
+    "@logingov/saml-bridge": "workspace:*",
+    "@logingov/security-events": "workspace:*",
     "@logingov/session-do": "workspace:*",
     "@logingov/shared": "workspace:*",
     "better-auth": "^1.5.5",
