@@ -16,7 +16,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -38,7 +38,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
