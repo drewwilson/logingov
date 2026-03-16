@@ -43,6 +43,7 @@ export interface Env {
   JWT_SIGNING_KEY: string;
   ENCRYPTION_KEY: string;
   PAIRWISE_SALT: string;
+  LEGACY_PAIRWISE_SALT?: string; // Old Rails pairwise salt for migrated user sub computation
   PERSONA_API_KEY: string;
   TWILIO_AUTH_TOKEN: string;
   TWILIO_ACCOUNT_SID: string;

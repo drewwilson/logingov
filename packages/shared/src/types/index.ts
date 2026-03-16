@@ -13,6 +13,7 @@ export interface User {
   address: string | null; // encrypted JSON blob
   phone: string | null; // encrypted blob
   verifiedAt: string | null;
+  legacyUuid: string | null; // Old Rails UUID for pairwise sub backward compat
   createdAt: string;
   updatedAt: string;
 }

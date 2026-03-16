@@ -1,14 +1,21 @@
 /**
  * Better Auth instance configuration.
  * Central auth configuration shared by auth-core and other Workers.
+ *
+ * Includes lazy password rehashing for migrated users: bcrypt hashes from the
+ * old Rails system are verified and then re-hashed with scrypt on first login.
  */
 import { betterAuth } from "better-auth";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { oidcProvider } from "better-auth/plugins/oidc-provider";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
+import { compare as bcryptCompare } from "bcrypt-ts";
 import { getDb } from "@logingov/shared/db";
 import type { Env } from "@logingov/shared";
 import * as schema from "./schema.js";
+
+const BCRYPT_MIGRATED_PREFIX = "migrated_bcrypt:";
 
 /**
  * Create a Better Auth instance bound to the current request's env.
@@ -26,6 +33,31 @@ export function createAuth(env: Env) {
     emailAndPassword: {
       enabled: true,
       autoSignIn: true,
+      password: {
+        async verify({ password, hash }) {
+          if (!hash.startsWith(BCRYPT_MIGRATED_PREFIX)) {
+            // Not a migrated hash — verify with Better Auth's native scrypt
+            return verifyPassword({ password, hash });
+          }
+
+          // Migrated user: verify against the bcrypt hash
+          const bcryptHash = hash.slice(BCRYPT_MIGRATED_PREFIX.length);
+          const valid = await bcryptCompare(password, bcryptHash);
+
+          if (valid) {
+            // Lazy rehash: replace bcrypt with scrypt so future logins are native.
+            const scryptHash = await hashPassword(password);
+            db.execute(
+              `UPDATE account SET password = ? WHERE password = ?`,
+              [scryptHash, hash]
+            ).catch(() => {
+              // Non-critical: rehash will succeed on next login
+            });
+          }
+
+          return valid;
+        },
+      },
     },
 
     socialProviders: {

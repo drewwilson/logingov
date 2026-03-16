@@ -61,7 +61,8 @@ userinfoRoute.get("/api/openid_connect/userinfo", async (c) => {
   const sub = await getPairwiseSub(
     tokenData.userId,
     tokenData.spId,
-    c.env
+    c.env,
+    user.legacyUuid
   );
 
   // ── Build claims scoped to requested scopes ──────────────────

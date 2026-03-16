@@ -2,12 +2,13 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(36) PRIMARY KEY,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  email_blind_index VARCHAR(64),
+  email TEXT NOT NULL,
+  email_blind_index VARCHAR(64) NOT NULL UNIQUE,
   email_verified_at VARCHAR(30),
   ial INT NOT NULL DEFAULT 1,
   locked_at VARCHAR(30),
   locale VARCHAR(10) NOT NULL DEFAULT 'en',
+  legacy_uuid VARCHAR(36) NULL,
   ssn TEXT,
   birthdate TEXT,
   address TEXT,
@@ -16,6 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at VARCHAR(30) NOT NULL,
   updated_at VARCHAR(30) NOT NULL
 );
+
+CREATE INDEX users_legacy_uuid_idx ON users (legacy_uuid);
 
 CREATE TABLE IF NOT EXISTS user_emails (
   id VARCHAR(36) PRIMARY KEY,

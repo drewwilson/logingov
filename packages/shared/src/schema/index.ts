@@ -19,6 +19,7 @@ export const users = mysqlTable("users", {
   address: text("address"), // encrypted JSON
   phone: text("phone"),
   verifiedAt: varchar("verified_at", { length: 30 }),
+  legacyUuid: varchar("legacy_uuid", { length: 36 }), // Old Rails UUID for pairwise sub backward compat
   createdAt: varchar("created_at", { length: 30 }).notNull(),
   updatedAt: varchar("updated_at", { length: 30 }).notNull(),
 });

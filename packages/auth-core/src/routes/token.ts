@@ -8,7 +8,7 @@ import { Hono } from "hono";
 import { getDb } from "@logingov/shared/db";
 import { eq, and, isNull } from "drizzle-orm";
 import type { Env } from "@logingov/shared";
-import { AppError, authCodes, uuidV7 } from "@logingov/shared";
+import { AppError, authCodes, users, uuidV7 } from "@logingov/shared";
 import { validateClientAssertion } from "../lib/client-auth.js";
 import { verifyCodeChallenge, validateCodeVerifier } from "../lib/pkce.js";
 import { getPairwiseSub } from "../lib/pairwise.js";
@@ -134,8 +134,20 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
     );
   }
 
+  // ── Fetch user for legacy UUID (migrated user support) ────────
+  const userRows = await db
+    .select({ legacyUuid: users.legacyUuid })
+    .from(users)
+    .where(eq(users.id, authCode.userId))
+    .limit(1);
+
   // ── Compute pairwise subject identifier ──────────────────────
-  const sub = await getPairwiseSub(authCode.userId, clientId, c.env);
+  const sub = await getPairwiseSub(
+    authCode.userId,
+    clientId,
+    c.env,
+    userRows[0]?.legacyUuid
+  );
 
   // ── Issue access token (stored in KV with TTL) ───────────────
   const scopes: string[] = JSON.parse(authCode.scopes);

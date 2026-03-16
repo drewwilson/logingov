@@ -133,6 +133,15 @@ crons = [
 # Hyperdrive is Postgres-only; local dev uses DATABASE_URL from .dev.vars instead.
 # Production/staging environments define hyperdrive in their env blocks.
 
+# ── Secrets (set via `wrangler secret put`) ─────────────────
+# JWT_SIGNING_KEY, ENCRYPTION_KEY, PAIRWISE_SALT, ADMIN_API_KEY,
+# INTERNAL_SERVICE_KEY, PERSONA_API_KEY, TWILIO_AUTH_TOKEN,
+# TWILIO_ACCOUNT_SID, TWILIO_FROM_NUMBER, GOOGLE_CLIENT_ID,
+# GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+#
+# Migration-only (required when migrating from old Rails system):
+# LEGACY_PAIRWISE_SALT — old Rails identity_pii_salt for pairwise sub compat
+
 # ── Environment: Staging ─────────────────────────────────────
 [env.staging]
 name = "logingov-staging"

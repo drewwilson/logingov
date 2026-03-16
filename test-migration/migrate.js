@@ -19,7 +19,7 @@
 
 import pg from "pg";
 import mysql from "mysql2/promise";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, createHmac } from "node:crypto";
 
 // ── Config ───────────────────────────────────────────────────
 
@@ -37,6 +37,19 @@ const MYSQL_CONFIG = {
 };
 
 const BATCH_SIZE = 5000;
+
+// Encryption key for computing blind indexes during migration.
+// Set via ENCRYPTION_KEY env var, or falls back to a test key.
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "test_encryption_key_replace_in_production";
+
+/**
+ * Compute HMAC-SHA256 blind index for an email address.
+ * Must match the computeBlindIndex function in packages/shared/src/crypto/index.ts.
+ */
+function computeBlindIndex(value, key) {
+  const normalized = value.toLowerCase().trim();
+  return createHmac("sha256", key).update(normalized).digest("hex");
+}
 
 // ── UUID v7 ──────────────────────────────────────────────────
 
@@ -122,6 +135,7 @@ async function migrateUsers(pgClient, mysqlConn, dryRun) {
     values.push([
       newId,
       u.email,
+      computeBlindIndex(u.email, ENCRYPTION_KEY), // email_blind_index
       toISO(u.confirmed_at),          // → email_verified_at
       u.ial,
       toISO(u.locked_at),
@@ -131,6 +145,7 @@ async function migrateUsers(pgClient, mysqlConn, dryRun) {
       null,                             // address
       null,                             // phone (in phone_configurations)
       null,                             // verified_at (set from profiles)
+      u.uuid || null,                   // legacy_uuid — old Rails UUID for pairwise sub compat
       toISO(u.created_at),
       toISO(u.updated_at),
     ]);
@@ -140,10 +155,10 @@ async function migrateUsers(pgClient, mysqlConn, dryRun) {
   for (let i = 0; i < values.length; i += BATCH_SIZE) {
     const batch = values.slice(i, i + BATCH_SIZE);
     const placeholders = batch
-      .map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .join(", ");
     await mysqlConn.query(
-      `INSERT INTO users (id, email, email_verified_at, ial, locked_at, locale, ssn, birthdate, address, phone, verified_at, created_at, updated_at) VALUES ${placeholders}`,
+      `INSERT INTO users (id, email, email_blind_index, email_verified_at, ial, locked_at, locale, ssn, birthdate, address, phone, verified_at, legacy_uuid, created_at, updated_at) VALUES ${placeholders}`,
       batch.flat()
     );
   }
@@ -569,9 +584,21 @@ async function migrateBetterAuthAccounts(pgClient, mysqlConn, dryRun) {
       0, // twoFactorEnabled
     ]);
 
-    // For the test user, use the real scrypt hash; others get a marker
+    // For the test user, use the real scrypt hash so login works immediately.
+    // For all other migrated users, store the bcrypt hash with a prefix so the
+    // lazy rehash hook in auth.ts can detect and convert it on first login.
     const isTestUser = u.email === "testmigration@example.gov";
-    const passwordHash = isTestUser ? scryptHash : "migrated_bcrypt:needs_rehash";
+    // Look up the user's bcrypt password hash from the passwords table
+    const { rows: pwRows } = await pgClient.query(
+      "SELECT encrypted_password FROM passwords WHERE user_id = $1 LIMIT 1",
+      [u.id]
+    );
+    const bcryptHash = pwRows[0]?.encrypted_password;
+    const passwordHash = isTestUser
+      ? scryptHash
+      : bcryptHash
+        ? `migrated_bcrypt:${bcryptHash}`
+        : "migrated_bcrypt:needs_rehash";
 
     accountValues.push([
       uuidV7(ts.getTime()),
@@ -608,6 +635,39 @@ async function migrateBetterAuthAccounts(pgClient, mysqlConn, dryRun) {
   log(`Inserted ${userValues.length} Better Auth users + accounts`);
   log(`Test user: testmigration@example.gov / Password123!`);
   return userValues.length;
+}
+
+// ── Seed demo SP ────────────────────────────────────────────
+
+async function seedDemoSP(mysqlConn, dryRun) {
+  header("1g. Seeding demo service provider");
+
+  const spId = "urn:gov:gsa:openidconnect.profiles:sp:sso:example:app";
+
+  if (dryRun) {
+    log(`Would seed demo SP: ${spId}`);
+    return 1;
+  }
+
+  await mysqlConn.query(
+    `INSERT IGNORE INTO service_providers (id, name, ial_max, aal_max, redirect_uris, public_key, saml_metadata_url, push_notification_url, post_logout_redirect_uris, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      spId,
+      "Example Demo App",
+      2, 2,
+      JSON.stringify(["https://example.gov/auth/callback", "http://localhost:3000/auth/callback"]),
+      "-----BEGIN PUBLIC KEY-----\nplaceholder-run-demo-seed-sp-for-real-key\n-----END PUBLIC KEY-----",
+      null,
+      null,
+      JSON.stringify(["https://example.gov", "http://localhost:3000"]),
+      new Date().toISOString(),
+    ]
+  );
+
+  log(`Seeded demo SP: ${spId}`);
+  log(`Note: run POST /demo/seed-sp to generate a real key pair for OIDC flows`);
+  return 1;
 }
 
 // ── Reset ────────────────────────────────────────────────────
@@ -745,6 +805,7 @@ async function main() {
       service_providers: () => migrateServiceProviders(pgClient, mysqlConn, isDryRun),
       events: () => migrateEvents(pgClient, mysqlConn, isDryRun),
       betterauth: () => migrateBetterAuthAccounts(pgClient, mysqlConn, isDryRun),
+      demo_sp: () => seedDemoSP(mysqlConn, isDryRun),
     };
 
     if (singleTable) {

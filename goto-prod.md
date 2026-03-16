@@ -94,6 +94,7 @@ These aren't from a service — you create them locally.
 | `JWT_SIGNING_KEY`  | RS256 private key for signing JWTs  | `openssl genrsa 4096`                   |
 | `ENCRYPTION_KEY`   | AES-256-GCM key for PII at rest    | `openssl rand -hex 32`                  |
 | `PAIRWISE_SALT`    | HMAC salt for pairwise subject IDs | `openssl rand -hex 32`                  |
+| `LEGACY_PAIRWISE_SALT` | Old Rails pairwise salt (migrated users) | Extract from Rails credentials (`identity_pii_salt`) |
 | `ADMIN_API_KEY`    | Admin portal auth                  | `openssl rand -hex 32`                  |
 | `INTERNAL_SERVICE_KEY` | Worker-to-worker auth          | `openssl rand -hex 32`                  |
 
@@ -155,6 +156,7 @@ DATABASE_URL=
 JWT_SIGNING_KEY=
 ENCRYPTION_KEY=
 PAIRWISE_SALT=
+LEGACY_PAIRWISE_SALT=
 ADMIN_API_KEY=
 INTERNAL_SERVICE_KEY=
 
@@ -181,3 +183,48 @@ ALLOWED_ORIGINS=
 7. **GitHub Actions** — add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repo secrets
 8. **Deploy** — push to `main` for staging, tag `v*` for production
 9. **Onboard SPs** — register service providers via admin API
+
+---
+
+## 11. Agency Migration (from existing login.gov)
+
+If you're migrating from the existing Rails-based login.gov, follow these additional steps. **Existing agencies do NOT need to change their integration** — the new system is wire-compatible with the old OIDC/SAML endpoints. Agencies keep their same `client_id`, redirect URIs, public keys, and pairwise `sub` values.
+
+### Secrets to Extract from Old Rails System
+
+These cannot be generated — they must be obtained from the old system's production credentials.
+
+| Secret | What it is | Where to find it |
+|--------|-----------|-----------------|
+| `LEGACY_PAIRWISE_SALT` | Old Rails pairwise salt for preserving `sub` claims | Rails credentials (`identity_pii_salt`) |
+| Rails encryption keys | For decrypting PII during data migration | Rails credentials (`ActiveSupport::MessageEncryptor` keys) |
+| SAML signing cert + private key | For SAML assertion continuity with existing SAML SPs | Old IdP configuration |
+| Old JWKS RS256 signing key | For id_token verification continuity (agencies cache JWKS) | Old IdP key store |
+
+> **Critical:** Without `LEGACY_PAIRWISE_SALT`, migrated users will receive different `sub` values and every agency will lose the ability to recognize returning users.
+
+### Migration Order of Operations
+
+1. **Extract secrets** from old Rails system (`LEGACY_PAIRWISE_SALT`, encryption keys, SAML cert, JWKS signing key)
+2. **Run database migration** — `ENCRYPTION_KEY=<key> node test-migration/migrate.js --dry-run`, then `node test-migration/migrate.js`
+3. **Import old JWKS signing key** into R2 (`R2_KEYS/signing-key-current.json`) so id_tokens are signed with the same key agencies trust
+4. **Import old SAML cert** into SAML bridge configuration
+5. **Verify service providers** migrated correctly (redirect URIs, public keys, IAL/AAL requirements)
+6. **Test pairwise subs** — for sample migrated users, verify the `sub` claim matches old system output
+7. **Test OIDC flow** with a canary service provider end-to-end
+8. **Test SAML flow** with a canary SAML SP end-to-end
+9. **DNS cutover** — lower TTL on `secure.login.gov` to 60s 48 hours before, then switch to Cloudflare
+10. **Monitor** auth success rates per SP for 72 hours before raising TTL back
+
+### What Happens to Migrated Users
+
+- **Passwords**: Migrated users have bcrypt hashes from the old system. On first login, the hash is automatically verified and re-hashed to scrypt (the new system's native format). No action required from users.
+- **Pairwise subjects**: Migrated users (those with a `legacy_uuid` in the database) use the old Rails SHA-256 computation so agencies see the same `sub` they've always seen. New users use the standard HMAC-SHA256 computation.
+- **MFA**: TOTP secrets, WebAuthn credentials, and backup codes are migrated as-is. Users' existing authenticators continue to work.
+- **Identity proofing**: IAL2-verified users retain their proofed status — no re-proofing needed.
+
+### Rollback
+
+If critical issues are detected within the first 72 hours:
+1. Revert DNS for `secure.login.gov` back to the old infrastructure (60s TTL = fast propagation)
+2. Any new writes to PlanetScale during the new-system period will need reverse-syncing to PostgreSQL

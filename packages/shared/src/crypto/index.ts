@@ -92,6 +92,21 @@ export async function computePairwiseSub(
   return bufferToHex(new Uint8Array(signature));
 }
 
+/**
+ * Compute pairwise subject identifier for migrated users.
+ * Matches the old Rails computation: Digest::SHA256.hexdigest(uuid + issuer + salt)
+ * Uses plain SHA-256 (not HMAC) with simple string concatenation (no null byte separator).
+ */
+export async function computeLegacyPairwiseSub(
+  legacyUuid: string,
+  sectorIdentifier: string,
+  salt: string
+): Promise<string> {
+  const data = new TextEncoder().encode(legacyUuid + sectorIdentifier + salt);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return bufferToHex(new Uint8Array(hash));
+}
+
 // ── UUID v7 ─────────────────────────────────────────────────
 
 /**

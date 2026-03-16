@@ -24,6 +24,24 @@ VALUES
     '2025-01-01T00:00:00.000Z'
   );
 
+-- Demo SP used by the /demo page's OIDC test flow.
+-- The public key here is a static test key — the demo page's /demo/seed-sp
+-- endpoint generates a fresh key pair at runtime and will overwrite this if called.
+-- This entry ensures /authorize works immediately after seeding without hitting seed-sp.
+INSERT INTO service_providers (id, name, ial_max, aal_max, redirect_uris, public_key, saml_metadata_url, push_notification_url, post_logout_redirect_uris, created_at)
+VALUES
+  (
+    'urn:gov:gsa:openidconnect.profiles:sp:sso:example:app',
+    'Example Demo App',
+    2, 2,
+    '["https://example.gov/auth/callback","http://localhost:3000/auth/callback"]',
+    '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0Z3VS5JJcds3xfn/ygWe\ndemo-placeholder-key\n-----END PUBLIC KEY-----',
+    NULL,
+    NULL,
+    '["https://example.gov","http://localhost:3000"]',
+    '2025-01-01T00:00:00.000Z'
+  );
+
 -- Test users (passwords will be set via Better Auth in actual dev)
 INSERT INTO users (id, email, email_verified_at, ial, locked_at, locale, ssn, birthdate, address, phone, verified_at, created_at, updated_at)
 VALUES
