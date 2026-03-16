@@ -30,6 +30,7 @@ import { logoutRoute } from "./routes/logout.js";
 import { parRoute } from "./routes/par.js";
 import { demoRoute } from "./routes/demo.js";
 import { authFlowRoute } from "./routes/auth-flow.js";
+import hostedUiApp, { renderDashboard } from "@logingov/hosted-ui";
 
 // Sub-app workers (mounted as Hono sub-routes)
 import mfaApp from "@logingov/mfa";
@@ -137,6 +138,16 @@ app.route("/", logoutRoute);
 app.route("/", parRoute);
 app.route("/", demoRoute);
 app.route("/", authFlowRoute);
+// Redirect logged-in users from /sign-in to /dashboard
+app.use("/sign-in", async (c, next) => {
+  try {
+    const auth = createAuth(c.env);
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (session?.user) return c.redirect("/dashboard");
+  } catch {}
+  await next();
+});
+app.route("/", hostedUiApp);          // /sign-in (themed hosted login page)
 
 // ── Sub-app workers ─────────────────────────────────────────
 // Each sub-app defines its own route prefixes internally,
@@ -148,6 +159,38 @@ app.route("/", samlApp);             // /api/saml/*
 app.route("/", identityProofingApp); // /proofing/*, /ssn/*, /x509/*
 app.route("/admin", adminApp);       // /admin/service-providers/*
 app.route("/", securityEventsApp);   // /.well-known/risc-configuration, /api/risc/*
+
+// ── Dashboard (post-login landing page) ─────────────────────
+
+app.get("/dashboard", async (c) => {
+  const auth = createAuth(c.env);
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+
+  if (!session?.user) {
+    return c.redirect("/sign-in");
+  }
+
+  c.header(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' https:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "base-uri 'none'",
+    ].join("; ")
+  );
+
+  const { user } = session;
+  return c.html(renderDashboard({
+    name: user.name || "User",
+    email: user.email,
+    image: user.image || undefined,
+  }));
+});
 
 // ── Health check ────────────────────────────────────────────
 

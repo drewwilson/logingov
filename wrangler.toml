@@ -6,27 +6,27 @@ compatibility_flags = ["nodejs_compat"]
 # ── KV Namespaces ────────────────────────────────────────────
 [[kv_namespaces]]
 binding = "KV_SESSIONS"
-id = "local"                             # session token → user lookup
+id = "a7d22cbabe5e49acad26c5fac5e99efb"  # session token → user lookup
 
 [[kv_namespaces]]
 binding = "KV_SP_CONFIG"
-id = "local"                             # service provider config cache
+id = "a9e056ce6dd9455e88fc5219408a75e5"  # service provider config cache
 
 [[kv_namespaces]]
 binding = "KV_JWKS"
-id = "local"                             # JWKS cache (1hr TTL)
+id = "32e9a7daeded4ca0896b753ca85a5c26"  # JWKS cache (1hr TTL)
 
 [[kv_namespaces]]
 binding = "KV_FLAGS"
-id = "local"                             # feature flags
+id = "fd6fa039554b4d25ba7030763aa714cf"  # feature flags
 
 [[kv_namespaces]]
 binding = "KV_OTP"
-id = "local"                             # OTP codes (10min TTL)
+id = "1536b5b9c51e413292bcf53053460ac6"  # OTP codes (10min TTL)
 
 [[kv_namespaces]]
 binding = "KV_RATE_LIMIT"
-id = "local"                             # rate limit counters
+id = "88cf8adeb45644c0a69c9dc97ac4ec08"  # rate limit counters
 
 # ── R2 Buckets ───────────────────────────────────────────────
 [[r2_buckets]]
@@ -79,37 +79,39 @@ max_batch_size = 1
 max_retries = 3
 
 # ── Service Bindings (Worker-to-Worker) ──────────────────────
+# Self-reference so the worker can call itself (e.g. demo /authorize proxy)
 [[services]]
 binding = "AUTH_CORE"
 service = "logingov"                     # auth-core is the main Worker
 
-[[services]]
-binding = "MFA_WORKER"
-service = "logingov-mfa"
-
-[[services]]
-binding = "SAML_BRIDGE"
-service = "logingov-saml"
-
-[[services]]
-binding = "IDENTITY_PROOFING"
-service = "logingov-proofing"
-
-[[services]]
-binding = "SECURITY_EVENTS"
-service = "logingov-security-events"
-
-[[services]]
-binding = "ACCOUNT_WORKER"
-service = "logingov-account"
-
-[[services]]
-binding = "ADMIN_WORKER"
-service = "logingov-admin"
-
-[[services]]
-binding = "INFRA_WORKER"
-service = "logingov-infra"
+# Other service workers — uncomment as they are deployed:
+# [[services]]
+# binding = "MFA_WORKER"
+# service = "logingov-mfa"
+#
+# [[services]]
+# binding = "SAML_BRIDGE"
+# service = "logingov-saml"
+#
+# [[services]]
+# binding = "IDENTITY_PROOFING"
+# service = "logingov-proofing"
+#
+# [[services]]
+# binding = "SECURITY_EVENTS"
+# service = "logingov-security-events"
+#
+# [[services]]
+# binding = "ACCOUNT_WORKER"
+# service = "logingov-account"
+#
+# [[services]]
+# binding = "ADMIN_WORKER"
+# service = "logingov-admin"
+#
+# [[services]]
+# binding = "INFRA_WORKER"
+# service = "logingov-infra"
 
 # ── Durable Objects ──────────────────────────────────────────
 [durable_objects]
@@ -130,14 +132,21 @@ crons = [
 ]
 
 # ── Hyperdrive (PlanetScale) ────────────────────────────────
-# Hyperdrive is Postgres-only; local dev uses DATABASE_URL from .dev.vars instead.
-# Production/staging environments define hyperdrive in their env blocks.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "e33ce413f7af47639f1c7aabfd0087e3"
 
-# ── Secrets (set via `wrangler secret put`) ─────────────────
+# ── Non-secret config vars ──────────────────────────────────
+[vars]
+ENVIRONMENT = "production"
+BASE_URL = "https://logingov.drew-206.workers.dev"
+ALLOWED_ORIGINS = "https://logingov.drew-206.workers.dev"
+
+# ── Secrets (set via `wrangler secret bulk`) ────────────────
 # JWT_SIGNING_KEY, ENCRYPTION_KEY, PAIRWISE_SALT, ADMIN_API_KEY,
 # INTERNAL_SERVICE_KEY, PERSONA_API_KEY, TWILIO_AUTH_TOKEN,
 # TWILIO_ACCOUNT_SID, TWILIO_FROM_NUMBER, GOOGLE_CLIENT_ID,
-# GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+# GOOGLE_CLIENT_SECRET, MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET
 #
 # Migration-only (required when migrating from old Rails system):
 # LEGACY_PAIRWISE_SALT — old Rails identity_pii_salt for pairwise sub compat
@@ -149,3 +158,12 @@ name = "logingov-staging"
 # ── Environment: Production ──────────────────────────────────
 [env.production]
 name = "logingov-production"
+
+[[env.production.hyperdrive]]
+binding = "HYPERDRIVE"
+id = "e33ce413f7af47639f1c7aabfd0087e3"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+BASE_URL = "https://logingov.drew-206.workers.dev"
+ALLOWED_ORIGINS = "https://logingov.drew-206.workers.dev"

@@ -76,6 +76,9 @@ importers:
       '@logingov/admin':
         specifier: workspace:*
         version: link:../admin
+      '@logingov/hosted-ui':
+        specifier: workspace:*
+        version: link:../hosted-ui
       '@logingov/identity-proofing':
         specifier: workspace:*
         version: link:../identity-proofing
@@ -102,7 +105,7 @@ importers:
         version: 8.0.1
       better-auth:
         specifier: ^1.5.5
-        version: 1.5.5(@cloudflare/workers-types@4.20260313.1)(drizzle-orm@0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0)))(mongodb@7.1.0)(mysql2@3.19.1(@types/node@25.5.0))(vitest@3.2.4(@types/node@25.5.0))
+        version: 1.5.5(@cloudflare/workers-types@4.20260313.1)(drizzle-orm@0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0)))(mongodb@7.1.0)(mysql2@3.19.1(@types/node@25.5.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@3.2.4(@types/node@25.5.0))
       drizzle-orm:
         specifier: 0.45.1
         version: 0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0))
@@ -113,6 +116,34 @@ importers:
         specifier: ^6.2.1
         version: 6.2.1
     devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/hosted-ui:
+    dependencies:
+      '@logingov/shared':
+        specifier: workspace:*
+        version: link:../shared
+      drizzle-orm:
+        specifier: 0.45.1
+        version: 0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0))
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.8
+      react:
+        specifier: ^19.1.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.1.6
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.1.6
+        version: 19.2.3(@types/react@19.2.14)
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -1119,6 +1150,14 @@ packages:
   '@types/node@25.5.0':
     resolution: {integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==}
 
+  '@types/react-dom@19.2.3':
+    resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
+    peerDependencies:
+      '@types/react': ^19.2.0
+
+  '@types/react@19.2.14':
+    resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
+
   '@types/webidl-conversions@7.0.3':
     resolution: {integrity: sha512-CiJJvcRtIgzadHCYXw7dqEnMNRjhGZlYK05Mj9OyktqV8uVT8fD2BFOB7S1uwBE3Kj2Z+4UyPmFw/Ixgw/LAlA==}
 
@@ -1273,6 +1312,9 @@ packages:
   cookie@1.1.1:
     resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
     engines: {node: '>=18'}
+
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -1564,6 +1606,15 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
+  react-dom@19.2.4:
+    resolution: {integrity: sha512-AXJdLo8kgMbimY95O2aKQqsz2iWi9jMgKJhRBAxECE4IFxfcazB2LmzloIoibJI3C12IlY20+KFaLv+71bUJeQ==}
+    peerDependencies:
+      react: ^19.2.4
+
+  react@19.2.4:
+    resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
+    engines: {node: '>=0.10.0'}
+
   rollup@4.59.0:
     resolution: {integrity: sha512-2oMpl67a3zCH9H79LeMcbDhXW/UmWG/y2zuqnF2jQq5uq9TbM9TVyXvA4+t+ne2IIkBdrLpAaRQAvo7YI/Yyeg==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
@@ -1577,6 +1628,9 @@ packages:
 
   samlify@2.11.0:
     resolution: {integrity: sha512-1C9ukjlf0rRsuyqdzztqikdItqa33j9NCCDZgeBiWk0etU6vxNB+SWJKW4Flk07ZlhXeev/twALEKrPhIAyfDg==}
+
+  scheduler@0.27.0:
+    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
 
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
@@ -2393,6 +2447,14 @@ snapshots:
     dependencies:
       undici-types: 7.18.2
 
+  '@types/react-dom@19.2.3(@types/react@19.2.14)':
+    dependencies:
+      '@types/react': 19.2.14
+
+  '@types/react@19.2.14':
+    dependencies:
+      csstype: 3.2.3
+
   '@types/webidl-conversions@7.0.3': {}
 
   '@types/whatwg-url@13.0.0':
@@ -2455,7 +2517,7 @@ snapshots:
 
   bcrypt-ts@8.0.1: {}
 
-  better-auth@1.5.5(@cloudflare/workers-types@4.20260313.1)(drizzle-orm@0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0)))(mongodb@7.1.0)(mysql2@3.19.1(@types/node@25.5.0))(vitest@3.2.4(@types/node@25.5.0)):
+  better-auth@1.5.5(@cloudflare/workers-types@4.20260313.1)(drizzle-orm@0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0)))(mongodb@7.1.0)(mysql2@3.19.1(@types/node@25.5.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@3.2.4(@types/node@25.5.0)):
     dependencies:
       '@better-auth/core': 1.5.5(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260313.1)(better-call@1.3.2(zod@4.3.6))(jose@6.2.1)(kysely@0.28.12)(nanostores@1.1.1)
       '@better-auth/drizzle-adapter': 1.5.5(@better-auth/core@1.5.5(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(@cloudflare/workers-types@4.20260313.1)(better-call@1.3.2(zod@4.3.6))(jose@6.2.1)(kysely@0.28.12)(nanostores@1.1.1))(@better-auth/utils@0.3.1)(drizzle-orm@0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0)))
@@ -2478,6 +2540,8 @@ snapshots:
       drizzle-orm: 0.45.1(@cloudflare/workers-types@4.20260313.1)(@opentelemetry/api@1.9.0)(@planetscale/database@1.19.0)(kysely@0.28.12)(mysql2@3.19.1(@types/node@25.5.0))
       mongodb: 7.1.0
       mysql2: 3.19.1(@types/node@25.5.0)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
       vitest: 3.2.4(@types/node@25.5.0)
     transitivePeerDependencies:
       - '@cloudflare/workers-types'
@@ -2510,6 +2574,8 @@ snapshots:
   check-error@2.1.3: {}
 
   cookie@1.1.1: {}
+
+  csstype@3.2.3: {}
 
   debug@4.4.3:
     dependencies:
@@ -2722,6 +2788,13 @@ snapshots:
 
   punycode@2.3.1: {}
 
+  react-dom@19.2.4(react@19.2.4):
+    dependencies:
+      react: 19.2.4
+      scheduler: 0.27.0
+
+  react@19.2.4: {}
+
   rollup@4.59.0:
     dependencies:
       '@types/estree': 1.0.8
@@ -2767,6 +2840,8 @@ snapshots:
       xml-crypto: 6.1.2
       xml-escape: 1.1.0
       xpath: 0.0.34
+
+  scheduler@0.27.0: {}
 
   semver@7.7.4: {}
 

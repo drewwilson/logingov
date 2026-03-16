@@ -39,6 +39,7 @@ export interface ServiceProvider {
   samlMetadataUrl: string | null;
   pushNotificationUrl: string | null;
   postLogoutRedirectUris: string[] | null;
+  theme: Record<string, unknown> | null;
   createdAt: string;
 }
 

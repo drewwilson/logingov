@@ -33,6 +33,7 @@ export const account = mysqlTable("account", {
   providerId: varchar("providerId", { length: 255 }).notNull(),
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
+  idToken: text("idToken"),
   accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
   refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
   scope: text("scope"),

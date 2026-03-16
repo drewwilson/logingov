@@ -69,6 +69,7 @@ export const serviceProviders = mysqlTable("service_providers", {
   samlMetadataUrl: text("saml_metadata_url"),
   pushNotificationUrl: text("push_notification_url"),
   postLogoutRedirectUris: text("post_logout_redirect_uris"), // JSON array, nullable
+  theme: text("theme"), // JSON blob — hosted sign-in page theming
   createdAt: varchar("created_at", { length: 30 }).notNull(),
 });
 

@@ -189,8 +189,9 @@ authorizeRoute.get(
       throw new AppError("server_error", "Failed to create auth session", 500);
     }
 
-    // ── Redirect to login UI ──────────────────────────────────
-    const loginUrl = new URL(`${LOGIN_UI_BASE}/login`);
+    // ── Redirect to hosted sign-in UI ─────────────────────────
+    const origin = new URL(c.req.url).origin;
+    const loginUrl = new URL("/sign-in", origin);
     loginUrl.searchParams.set("session_id", sessionId);
     loginUrl.searchParams.set("locale", locale);
 

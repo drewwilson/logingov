@@ -44,6 +44,15 @@ export async function lookupServiceProvider(
     }
   }
 
+  let theme: Record<string, unknown> | null = null;
+  if (row.theme) {
+    try {
+      theme = JSON.parse(row.theme);
+    } catch {
+      // Malformed JSON; treat as null
+    }
+  }
+
   const sp: ServiceProvider = {
     id: row.id,
     name: row.name,
@@ -54,6 +63,7 @@ export async function lookupServiceProvider(
     samlMetadataUrl: row.samlMetadataUrl,
     pushNotificationUrl: row.pushNotificationUrl,
     postLogoutRedirectUris,
+    theme,
     createdAt: row.createdAt,
   };
 

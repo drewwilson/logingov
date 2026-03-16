@@ -73,15 +73,17 @@ Create an OAuth 2.0 Client ID (Web application type). Add your prod redirect URI
 
 ---
 
-## 6. GitHub OAuth (Social Login)
+## 6. Microsoft OAuth (Social Login)
 
-**Set up**: [github.com/settings/developers](https://github.com/settings/developers) → OAuth Apps → New
+**Set up**: [portal.azure.com](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → App registrations → New registration
 
-Add your prod callback URL.
+- Supported account types: "Accounts in any organizational directory and personal Microsoft accounts"
+- Redirect URI (Web): `https://<your-worker-url>/api/auth/callback/microsoft`
+- After creation, go to **Certificates & secrets → New client secret** and copy the Value immediately
 
 **Tokens to collect**:
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
+- `MICROSOFT_CLIENT_ID` — Application (client) ID from the overview page
+- `MICROSOFT_CLIENT_SECRET` — Client secret value (shown only once)
 
 ---
 
@@ -148,8 +150,8 @@ TWILIO_FROM_NUMBER=
 PERSONA_API_KEY=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
 DATABASE_URL=
 
 # Self-generated
@@ -179,7 +181,7 @@ ALLOWED_ORIGINS=
 3. **Generate secrets** — JWT key, encryption key, salts, API keys
 4. **Twilio** — account + phone number
 5. **Persona** — account + inquiry template
-6. **Google & GitHub OAuth** — create apps with prod redirect URIs
+6. **Google & Microsoft OAuth** — create apps with prod redirect URIs
 7. **GitHub Actions** — add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repo secrets
 8. **Deploy** — push to `main` for staging, tag `v*` for production
 9. **Onboard SPs** — register service providers via admin API

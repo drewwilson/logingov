@@ -9,6 +9,7 @@
   "dependencies": {
     "@logingov/account": "workspace:*",
     "@logingov/admin": "workspace:*",
+    "@logingov/hosted-ui": "workspace:*",
     "@logingov/identity-proofing": "workspace:*",
     "@logingov/infra": "workspace:*",
     "@logingov/mfa": "workspace:*",

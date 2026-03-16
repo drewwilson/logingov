@@ -29,7 +29,7 @@ export async function securityHeaders(
 
   // Content Security Policy — restrictive default for an API service
   // Demo routes set their own relaxed CSP; don't overwrite it.
-  if (!c.req.path.startsWith("/demo")) {
+  if (!c.req.path.startsWith("/demo") && !c.req.path.startsWith("/sign-in") && !c.req.path.startsWith("/dashboard")) {
     c.header(
       "Content-Security-Policy",
       [

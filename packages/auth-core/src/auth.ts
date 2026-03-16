@@ -25,6 +25,7 @@ export function createAuth(env: Env) {
   const db = getDb(env);
 
   return betterAuth({
+    secret: env.JWT_SIGNING_KEY,
     baseURL: env.BASE_URL || "http://localhost:8787",
     basePath: "/api/auth",
 
@@ -60,14 +61,21 @@ export function createAuth(env: Env) {
       },
     },
 
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google", "microsoft"],
+      },
+    },
+
     socialProviders: {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
       },
-      github: {
-        clientId: env.GITHUB_CLIENT_ID,
-        clientSecret: env.GITHUB_CLIENT_SECRET,
+      microsoft: {
+        clientId: env.MICROSOFT_CLIENT_ID,
+        clientSecret: env.MICROSOFT_CLIENT_SECRET,
       },
     },
 
@@ -106,7 +114,8 @@ export function createAuth(env: Env) {
       "https://secure.login.gov",
       "https://idp.int.identitysandbox.gov",
       "http://localhost:8787",
-    ],
+      env.BASE_URL || "",
+    ].filter(Boolean),
   });
 }
 

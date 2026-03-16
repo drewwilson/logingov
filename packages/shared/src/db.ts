@@ -10,7 +10,7 @@ import { drizzle } from "drizzle-orm/planetscale-serverless";
 import type { Env } from "./env.js";
 
 export function getDb(env: Env) {
-  const url = env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
+  const url = env.DATABASE_URL ?? env.HYPERDRIVE?.connectionString;
   if (!url) throw new Error("No database connection: set HYPERDRIVE or DATABASE_URL");
   const client = new Client({ url });
   return drizzle(client);
