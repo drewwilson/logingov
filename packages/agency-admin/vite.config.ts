@@ -7,6 +7,21 @@ export default defineConfig({
     port: 5176,
   },
   plugins: [
+    // Rewrite .js imports to .ts/.tsx for TypeScript ESM compatibility
+    {
+      name: "resolve-ts-extensions",
+      enforce: "pre",
+      async resolveId(source, importer) {
+        if (!importer || !source.endsWith(".js")) return null;
+        if (source.includes("node_modules") || importer.includes("node_modules")) return null;
+        for (const ext of [".ts", ".tsx"]) {
+          const tsSource = source.slice(0, -3) + ext;
+          const resolved = await this.resolve(tsSource, importer, { skipSelf: true });
+          if (resolved) return resolved;
+        }
+        return null;
+      },
+    },
     react(),
     devServer({
       entry: "src/server.ts",
