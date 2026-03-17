@@ -19,14 +19,15 @@ const logoutRoutes = new Hono<{ Bindings: Env }>();
 /**
  * SLO via GET (HTTP-Redirect binding).
  */
-logoutRoutes.get("/api/saml/logout", async (c) => {
+logoutRoutes.get("/api/saml/logout:year{[0-9]{4}}?", async (c) => {
   return handleLogout(c.env, c.req.query("SAMLRequest"), c.req.query("RelayState"));
 });
 
 /**
  * SLO via POST (HTTP-POST binding).
+ * Supports year-versioned paths (e.g. /api/saml/logout2026) for cert rotation.
  */
-logoutRoutes.post("/api/saml/logout", async (c) => {
+logoutRoutes.post("/api/saml/logout:year{[0-9]{4}}?", async (c) => {
   const formData = await c.req.parseBody();
   return handleLogout(
     c.env,

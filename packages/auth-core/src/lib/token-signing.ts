@@ -62,6 +62,7 @@ export async function signIdToken(claims: IdTokenClaims, env: Env): Promise<stri
     .setSubject(claims.sub)
     .setAudience(claims.aud)
     .setIssuedAt(now)
+    .setNotBefore(now)
     .setExpirationTime(ID_TOKEN_EXPIRY)
     .setJti(uuidV7())
     .sign(key);

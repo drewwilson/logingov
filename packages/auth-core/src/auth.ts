@@ -12,6 +12,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { compare as bcryptCompare } from "bcrypt-ts";
 import { getDb } from "@logingov/shared/db";
+import { sql } from "drizzle-orm";
 import type { Env } from "@logingov/shared";
 import * as schema from "./schema.js";
 
@@ -49,8 +50,7 @@ export function createAuth(env: Env) {
             // Lazy rehash: replace bcrypt with scrypt so future logins are native.
             const scryptHash = await hashPassword(password);
             db.execute(
-              `UPDATE account SET password = ? WHERE password = ?`,
-              [scryptHash, hash]
+              sql`UPDATE account SET password = ${scryptHash} WHERE password = ${hash}`
             ).catch(() => {
               // Non-critical: rehash will succeed on next login
             });

@@ -113,6 +113,11 @@ app.get("/.well-known/openid-configuration", async (c) => {
       "urn:acr.login.gov:verified",
       "urn:acr.login.gov:verified-facial-match-required",
       "urn:acr.login.gov:verified-facial-match-preferred",
+      // AAL modifiers
+      "urn:gov:gsa:ac:classes:sp:PasswordProtectedTransport:duo",
+      "http://idmanagement.gov/ns/assurance/aal/2",
+      "http://idmanagement.gov/ns/assurance/aal/2?phishing_resistant=true",
+      "http://idmanagement.gov/ns/assurance/aal/2?hspd12=true",
       // Deprecated (backward compat)
       "http://idmanagement.gov/ns/assurance/ial/1",
       "http://idmanagement.gov/ns/assurance/ial/2",
@@ -139,7 +144,12 @@ app.route("/", parRoute);
 app.route("/", demoRoute);
 app.route("/", authFlowRoute);
 // Redirect logged-in users from /sign-in to /dashboard
+// (skip when verify=1 — returning from social OAuth for ID verification wizard)
 app.use("/sign-in", async (c, next) => {
+  if (c.req.query("verify") === "1") {
+    await next();
+    return;
+  }
   try {
     const auth = createAuth(c.env);
     const session = await auth.api.getSession({ headers: c.req.raw.headers });

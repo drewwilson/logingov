@@ -6,8 +6,8 @@
  */
 import { Hono } from "hono";
 import type { Env } from "@logingov/shared";
-import { ACR_VALUES, AppError, uuidV7, evaluateIAL, kvGet, kvDelete } from "@logingov/shared";
-import type { ACRValue, IALLevel } from "@logingov/shared";
+import { AppError, uuidV7, evaluateIAL, kvGet, kvDelete, parseAcrValues } from "@logingov/shared";
+import type { IALLevel } from "@logingov/shared";
 import { lookupServiceProvider } from "../lib/sp-lookup.js";
 import { validateCodeChallenge } from "../lib/pkce.js";
 import { deprecatedAcrMiddleware } from "../middleware/deprecated-acr.js";
@@ -128,17 +128,18 @@ authorizeRoute.get(
     }
 
     // ── Parse ACR values to determine IAL/AAL ─────────────────
-    const primaryAcr = acrValues.split(" ")[0];
-    const acrConfig = ACR_VALUES[primaryAcr as ACRValue];
+    const parsed = parseAcrValues(acrValues);
 
-    if (!acrConfig) {
+    if (!parsed) {
       return redirectWithError(
         redirectUri,
         state,
         "invalid_request",
-        `Unsupported acr_values: ${primaryAcr}`
+        `Unsupported acr_values: ${acrValues}`
       );
     }
+
+    const { acrConfig, primaryAcr, aalOverride } = parsed;
 
     // ── IAL evaluation: check SP supports the requested IAL ───
     const requestedIal = acrConfig.ial as IALLevel;
@@ -159,6 +160,9 @@ authorizeRoute.get(
     const doId = c.env.SESSION_DO.idFromName(sessionId);
     const sessionDO = c.env.SESSION_DO.get(doId);
 
+    // AAL override from separate AAL ACR values (e.g. duo, aal/2?phishing_resistant)
+    const effectiveAal = (aalOverride?.aal ?? acrConfig.aal) as 1 | 2;
+
     const sessionState: SessionState = {
       spId: clientId,
       responseType: "code",
@@ -169,8 +173,10 @@ authorizeRoute.get(
       codeChallenge,
       codeChallengeMethod: codeChallengeMethod || undefined,
       requestedIal: acrConfig.ial as 1 | 2,
-      requestedAal: acrConfig.aal as 1 | 2,
+      requestedAal: effectiveAal,
       facialMatch: "facialMatch" in acrConfig ? acrConfig.facialMatch : undefined,
+      phishingResistant: aalOverride?.phishingResistant,
+      hspd12: aalOverride?.hspd12,
       mfaVerified: false,
       locale,
       createdAt: new Date().toISOString(),

@@ -68,7 +68,7 @@ export interface AssuranceLevels {
 // ── ACR value mappings ──────────────────────────────────────
 
 export const ACR_VALUES = {
-  // Current URNs
+  // Current URNs (IAL + default AAL)
   "urn:acr.login.gov:auth-only": { ial: 1, aal: 1 },
   "urn:acr.login.gov:verified": { ial: 2, aal: 2 },
   "urn:acr.login.gov:verified-facial-match-required": { ial: 2, aal: 2, facialMatch: "required" as const },
@@ -81,6 +81,64 @@ export const ACR_VALUES = {
 } as const;
 
 export type ACRValue = keyof typeof ACR_VALUES;
+
+// ── AAL ACR value mappings ────────────────────────────────────
+// These are separate AAL-level URNs that agencies send alongside IAL ACR values.
+// They modify the AAL requirement without changing the IAL.
+
+export interface AALConfig {
+  aal: AALLevel;
+  phishingResistant?: boolean;
+  hspd12?: boolean;
+}
+
+export const AAL_ACR_VALUES: Record<string, AALConfig> = {
+  // Default: second factor required (most agencies use this)
+  "urn:gov:gsa:ac:classes:sp:PasswordProtectedTransport:duo": { aal: 2 },
+  // Strict AAL2: no remembered devices
+  "http://idmanagement.gov/ns/assurance/aal/2": { aal: 2 },
+  // Phishing-resistant: WebAuthn/PIV required
+  "http://idmanagement.gov/ns/assurance/aal/2?phishing_resistant=true": { aal: 2, phishingResistant: true },
+  // HSPD-12: PIV/CAC only
+  "http://idmanagement.gov/ns/assurance/aal/2?hspd12=true": { aal: 2, hspd12: true },
+};
+
+/**
+ * Parse acr_values string to extract IAL config and optional AAL override.
+ * Login.gov allows space-separated ACR values where one is the IAL level
+ * and another (optional) is an AAL modifier.
+ */
+export function parseAcrValues(acrValues: string): {
+  acrConfig: (typeof ACR_VALUES)[ACRValue];
+  primaryAcr: string;
+  aalOverride?: AALConfig;
+} | null {
+  const parts = acrValues.split(" ").filter(Boolean);
+
+  let primaryAcr: string | undefined;
+  let acrConfig: (typeof ACR_VALUES)[ACRValue] | undefined;
+  let aalOverride: AALConfig | undefined;
+
+  for (const part of parts) {
+    // Check if it's an IAL-level ACR value
+    if (part in ACR_VALUES) {
+      if (!primaryAcr) {
+        primaryAcr = part;
+        acrConfig = ACR_VALUES[part as ACRValue];
+      }
+    }
+    // Check if it's an AAL modifier
+    if (part in AAL_ACR_VALUES) {
+      aalOverride = AAL_ACR_VALUES[part];
+    }
+  }
+
+  if (!primaryAcr || !acrConfig) {
+    return null;
+  }
+
+  return { acrConfig, primaryAcr, aalOverride };
+}
 
 // ── OIDC scopes → user attributes ──────────────────────────
 
@@ -104,16 +162,23 @@ export type OIDCScope = keyof typeof SCOPE_ATTRIBUTES;
 // ── RISC / SET event types ──────────────────────────────────
 
 export const SET_EVENT_TYPES = {
+  // Standard RISC event types
   ACCOUNT_DISABLED: "https://schemas.openid.net/secevent/risc/event-type/account-disabled",
+  ACCOUNT_ENABLED: "https://schemas.openid.net/secevent/risc/event-type/account-enabled",
   ACCOUNT_PURGED: "https://schemas.openid.net/secevent/risc/event-type/account-purged",
   CREDENTIAL_COMPROMISE: "https://schemas.openid.net/secevent/risc/event-type/credential-compromise",
   IDENTIFIER_CHANGED: "https://schemas.openid.net/secevent/risc/event-type/identifier-changed",
   IDENTIFIER_RECYCLED: "https://schemas.openid.net/secevent/risc/event-type/identifier-recycled",
-  PASSWORD_RESET: "https://schemas.openid.net/secevent/risc/event-type/recovery-activated",
-  REPROOF_COMPLETED: "https://schemas.openid.net/secevent/risc/event-type/reproof-completed",
+  RECOVERY_ACTIVATED: "https://schemas.openid.net/secevent/risc/event-type/recovery-activated",
+  RECOVERY_INFORMATION_CHANGED: "https://schemas.openid.net/secevent/risc/event-type/recovery-information-changed",
   SESSION_REVOKED: "https://schemas.openid.net/secevent/risc/event-type/session-revoked",
-  AUTHORIZATION_FRAUD: "https://schemas.openid.net/secevent/risc/event-type/authorization-fraud-detected",
-  IDENTITY_FRAUD: "https://schemas.openid.net/secevent/risc/event-type/identity-fraud-detected",
+  // Login.gov custom event types
+  MFA_LIMIT_ACCOUNT_LOCKED: "https://schemas.login.gov/secevent/risc/event-type/mfa-limit-account-locked",
+  PASSWORD_RESET: "https://schemas.login.gov/secevent/risc/event-type/password-reset",
+  REPROOF_COMPLETED: "https://schemas.login.gov/secevent/risc/event-type/reproof-completed",
+  // Login.gov fraud event types (inbound from RPs)
+  AUTHORIZATION_FRAUD: "https://schemas.login.gov/secevent/risc/event-type/authorization-fraud-detected",
+  IDENTITY_FRAUD: "https://schemas.login.gov/secevent/risc/event-type/identity-fraud-detected",
 } as const;
 
 export type SETEventType = (typeof SET_EVENT_TYPES)[keyof typeof SET_EVENT_TYPES];

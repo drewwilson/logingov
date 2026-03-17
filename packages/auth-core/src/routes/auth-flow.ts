@@ -9,6 +9,8 @@ import { getDb } from "@logingov/shared/db";
 import { eq } from "drizzle-orm";
 import type { Env } from "@logingov/shared";
 import { AppError, authCodes, credentials, uuidV7 } from "@logingov/shared";
+import { users } from "@logingov/shared/schema";
+import { encrypt, importKey } from "@logingov/shared/crypto";
 import type { SessionState } from "@logingov/session-do";
 
 const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -192,6 +194,91 @@ authFlowRoute.post("/api/auth-flow/issue-code", async (c) => {
     code,
     state: session.state,
   });
+});
+
+// ── POST /api/auth-flow/mock-verify ──────────────────────────
+// Mock identity proofing for development — bypasses Persona API,
+// stores dummy PII, and upgrades user to IAL2.
+
+const MOCK_PII = {
+  firstName: "Jane",
+  lastName: "Doe",
+  birthdate: "1985-01-15",
+  ssn: "900-00-1234",
+  addressStreet: "123 Main St",
+  addressCity: "Washington",
+  addressState: "DC",
+  addressPostalCode: "20001",
+  addressCountryCode: "US",
+};
+
+authFlowRoute.post("/api/auth-flow/mock-verify", async (c) => {
+  // TODO: gate this behind ENVIRONMENT !== "production" once Persona is live
+
+  const { sessionId, userId } = await c.req.json<{
+    sessionId?: string;
+    userId: string;
+  }>();
+
+  if (!userId) {
+    throw new AppError(
+      "invalid_request",
+      "userId is required",
+      400
+    );
+  }
+
+  const now = new Date().toISOString();
+
+  // Try to encrypt and store dummy PII — non-fatal if ENCRYPTION_KEY
+  // is missing or the user doesn't exist in the shared users table yet.
+  try {
+    const cryptoKey = await importKey(c.env.ENCRYPTION_KEY);
+
+    const encryptedSsn = await encrypt(MOCK_PII.ssn, cryptoKey);
+    const encryptedBirthdate = await encrypt(MOCK_PII.birthdate, cryptoKey);
+    const encryptedAddress = await encrypt(
+      JSON.stringify({
+        street: MOCK_PII.addressStreet,
+        city: MOCK_PII.addressCity,
+        state: MOCK_PII.addressState,
+        postalCode: MOCK_PII.addressPostalCode,
+        countryCode: MOCK_PII.addressCountryCode,
+      }),
+      cryptoKey
+    );
+
+    const db = getDb(c.env);
+    await db
+      .update(users)
+      .set({
+        ial: 2,
+        ssn: encryptedSsn,
+        birthdate: encryptedBirthdate,
+        address: encryptedAddress,
+        verifiedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(users.id, userId));
+  } catch (err) {
+    // In dev, PII storage may fail (missing ENCRYPTION_KEY, no shared users row, etc.)
+    console.warn("[mock-verify] PII storage skipped:", err instanceof Error ? err.message : err);
+  }
+
+  // Update SessionDO with achievedIal (skip if no session, e.g. direct testing)
+  if (sessionId) {
+    const doId = c.env.SESSION_DO.idFromName(sessionId);
+    const stub = c.env.SESSION_DO.get(doId);
+    await stub.fetch(
+      new Request("https://session-do/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ achievedIal: 2 }),
+      })
+    );
+  }
+
+  return c.json({ ok: true, ial: 2, verifiedAt: now });
 });
 
 export { authFlowRoute };

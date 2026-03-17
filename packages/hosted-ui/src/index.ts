@@ -10,6 +10,7 @@ const hostedUiApp = new Hono<{ Bindings: Env }>();
 hostedUiApp.get("/sign-in", async (c) => {
   const sessionId = c.req.query("session_id");
   const locale = c.req.query("locale") || "en";
+  const ial = c.req.query("ial") || "1";
 
   let theme: SPThemeConfig = DEFAULT_THEME;
 
@@ -59,7 +60,7 @@ hostedUiApp.get("/sign-in", async (c) => {
     ].join("; ")
   );
 
-  const html = renderPage(theme, sessionId || "", locale);
+  const html = renderPage(theme, sessionId || "", locale, ial);
   return c.html(html);
 });
 

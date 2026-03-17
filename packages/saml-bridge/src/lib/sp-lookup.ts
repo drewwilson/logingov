@@ -54,6 +54,7 @@ export async function lookupServiceProvider(
     samlMetadataUrl: row.samlMetadataUrl,
     pushNotificationUrl: row.pushNotificationUrl,
     postLogoutRedirectUris,
+    theme: row.theme ? JSON.parse(row.theme) : null,
     createdAt: row.createdAt,
   };
 

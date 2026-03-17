@@ -1,13 +1,14 @@
 /**
  * OIDC Logout Endpoint — GET /openid_connect/logout
  *
- * Validates id_token_hint, destroys the session DO, clears KV session data,
- * and redirects to the post_logout_redirect_uri.
+ * Supports login.gov's logout contract (client_id + post_logout_redirect_uri)
+ * and standard OIDC RP-Initiated Logout (id_token_hint). Destroys the session
+ * DO, emits a session-revoked SET, and redirects to the post_logout_redirect_uri.
  */
 import { Hono } from "hono";
 import * as jose from "jose";
 import type { Env } from "@logingov/shared";
-import { AppError, kvDelete } from "@logingov/shared";
+import { AppError } from "@logingov/shared";
 import { enqueue } from "@logingov/infra";
 import { createQueueMessage } from "@logingov/shared/queue";
 import type { SETOutboundPayload } from "@logingov/shared/queue";
@@ -23,37 +24,37 @@ logoutRoute.get("/openid_connect/logout", async (c) => {
   const idTokenHint = c.req.query("id_token_hint");
   const postLogoutRedirectUri = c.req.query("post_logout_redirect_uri");
   const state = c.req.query("state");
+  const clientIdParam = c.req.query("client_id");
 
-  // ── Validate id_token_hint ──────────────────────────────────
-  if (!idTokenHint) {
-    throw new AppError("invalid_request", "id_token_hint is required", 400);
+  // ── Resolve client_id and sub ───────────────────────────────
+  // Login.gov uses client_id + post_logout_redirect_uri (no id_token_hint).
+  // We also support id_token_hint for standard OIDC RP-Initiated Logout.
+  let clientId: string | undefined;
+  let sub: string | undefined;
+
+  if (idTokenHint) {
+    // If id_token_hint is provided, verify and extract claims
+    try {
+      const { key } = await getSigningKey(c.env);
+      const { payload } = await jose.jwtVerify(idTokenHint, key, {
+        clockTolerance: 365 * 24 * 60 * 60, // allow expired tokens for logout
+      });
+      sub = payload.sub ?? undefined;
+      const aud = payload.aud;
+      clientId = Array.isArray(aud) ? aud[0] : aud;
+    } catch {
+      // Invalid id_token_hint — fall through to client_id param
+    }
   }
 
-  // Verify id_token_hint signature (allow expired tokens since logout after expiry is valid)
-  let claims: jose.JWTPayload;
-  try {
-    const { key } = await getSigningKey(c.env);
-    const { payload } = await jose.jwtVerify(idTokenHint, key, {
-      clockTolerance: 365 * 24 * 60 * 60, // allow expired tokens for logout
-    });
-    claims = payload;
-  } catch {
-    throw new AppError("invalid_request", "Invalid id_token_hint", 400);
+  // client_id param takes precedence (login.gov standard flow)
+  if (clientIdParam) {
+    clientId = clientIdParam;
   }
 
-  const sub = claims.sub;
-  const aud = claims.aud;
-
-  if (!sub || !aud) {
-    throw new AppError(
-      "invalid_request",
-      "id_token_hint missing sub or aud",
-      400
-    );
+  if (!clientId) {
+    throw new AppError("invalid_request", "client_id is required", 400);
   }
-
-  // Determine the client_id (aud may be string or string[])
-  const clientId = Array.isArray(aud) ? aud[0] : aud;
 
   // ── Validate post_logout_redirect_uri ───────────────────────
   let redirectTo = DEFAULT_LOGOUT_REDIRECT;
@@ -72,35 +73,26 @@ logoutRoute.get("/openid_connect/logout", async (c) => {
   }
 
   // ── Destroy SessionDO ───────────────────────────────────────
-  // We use the sub as the DO name to find the right session
-  // In practice, we'd look up the session by the token's jti or a session reference
-  // For now, attempt to destroy any active session for this sub
-  try {
-    const doId = c.env.SESSION_DO.idFromName(sub);
-    const sessionDO = c.env.SESSION_DO.get(doId);
-    await sessionDO.fetch(
-      new Request("https://session-do/destroy", { method: "DELETE" })
-    );
-  } catch {
-    // Session may already be expired/destroyed — that's fine
-  }
-
-  // ── Clear KV session data ───────────────────────────────────
-  // Clear the access token if referenced in the id_token jti
-  if (claims.jti) {
+  // If we have a sub (from id_token_hint), destroy the session DO
+  if (sub) {
     try {
-      await kvDelete(c.env.KV_SESSIONS, `session:${claims.jti}`);
+      const doId = c.env.SESSION_DO.idFromName(sub);
+      const sessionDO = c.env.SESSION_DO.get(doId);
+      await sessionDO.fetch(
+        new Request("https://session-do/destroy", { method: "DELETE" })
+      );
     } catch {
-      // Best-effort cleanup
+      // Session may already be expired/destroyed — that's fine
     }
   }
 
   // ── Emit session-revoked SET ────────────────────────────────
+  const subjectId = sub ?? clientId; // best-effort subject for audit
   try {
-    const setMessage = createQueueMessage<SETOutboundPayload>("set:outbound", sub, {
+    const setMessage = createQueueMessage<SETOutboundPayload>("set:outbound", subjectId, {
       targetUrl: "", // resolved by SET consumer per SP
       eventUri: SET_EVENT_TYPES.SESSION_REVOKED,
-      subject: sub,
+      subject: subjectId,
       claims: {
         clientId,
         revokedAt: new Date().toISOString(),
@@ -112,7 +104,7 @@ logoutRoute.get("/openid_connect/logout", async (c) => {
   }
 
   // ── Audit log: logout ─────────────────────────────────────────
-  await enqueue(c.env.QUEUE_AUDIT, "audit:write", sub, {
+  await enqueue(c.env.QUEUE_AUDIT, "audit:write", subjectId, {
     eventType: "logout",
     ip: c.req.header("cf-connecting-ip") ?? "unknown",
     ial: 1,

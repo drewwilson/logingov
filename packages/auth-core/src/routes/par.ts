@@ -10,8 +10,8 @@
  */
 import { Hono } from "hono";
 import type { Env } from "@logingov/shared";
-import { ACR_VALUES, AppError, uuidV7, evaluateIAL, kvPut, KV_KEYS } from "@logingov/shared";
-import type { ACRValue, IALLevel } from "@logingov/shared";
+import { AppError, uuidV7, evaluateIAL, kvPut, KV_KEYS, parseAcrValues } from "@logingov/shared";
+import type { IALLevel } from "@logingov/shared";
 import { validateClientAssertion } from "../lib/client-auth.js";
 import { lookupServiceProvider } from "../lib/sp-lookup.js";
 import { validateCodeChallenge } from "../lib/pkce.js";
@@ -102,13 +102,12 @@ parRoute.post("/api/openid_connect/par", async (c) => {
 
   // ── Validate ACR values ───────────────────────────────────
   if (acrValues) {
-    const primaryAcr = acrValues.split(" ")[0];
-    const acrConfig = ACR_VALUES[primaryAcr as ACRValue];
-    if (!acrConfig) {
-      throw new AppError("invalid_request", `Unsupported acr_values: ${primaryAcr}`, 400);
+    const parsed = parseAcrValues(acrValues);
+    if (!parsed) {
+      throw new AppError("invalid_request", `Unsupported acr_values: ${acrValues}`, 400);
     }
 
-    const requestedIal = acrConfig.ial as IALLevel;
+    const requestedIal = parsed.acrConfig.ial as IALLevel;
     const spMaxIal = sp.ialMax as IALLevel;
     const { allowed } = evaluateIAL(spMaxIal, requestedIal);
     if (!allowed) {

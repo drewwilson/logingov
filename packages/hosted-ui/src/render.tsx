@@ -7,6 +7,7 @@ export function renderPage(
   theme: SPThemeConfig,
   sessionId: string,
   locale: string,
+  ial: string = "1",
 ): string {
   const isDark = !isLightColor(theme.formBackground.color);
   const textOnBg = isDark ? "#ffffff" : "var(--primary)";
@@ -319,11 +320,298 @@ export function renderPage(
         margin-bottom: 40px;
       }
     }
+
+    /* ── ID Verification Wizard ──────────────── */
+
+    .wizard { display: none; width: 100%; }
+    .wizard.active { display: block; }
+
+    .wizard-progress {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 32px;
+    }
+    .wizard-progress-bar {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--primary-12);
+      transition: background 0.3s;
+    }
+    .wizard-progress-bar.done {
+      background: var(--primary);
+    }
+
+    .wizard-step { display: none; text-align: center; }
+    .wizard-step.active { display: block; }
+
+    .wizard-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      border-radius: 50%;
+      background: var(--primary-5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wizard-icon svg {
+      width: 40px;
+      height: 40px;
+      color: var(--primary);
+    }
+
+    .wizard-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-on-bg);
+      margin-bottom: 8px;
+    }
+    .wizard-desc {
+      font-size: 14px;
+      color: var(--subtitle-on-bg);
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .wizard-btn {
+      width: 100%;
+      height: 52px;
+      border: none;
+      border-radius: 9999px;
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .wizard-btn:hover { opacity: 0.9; }
+
+    .wizard-mock-upload {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 32px;
+      justify-content: center;
+    }
+    .wizard-mock-doc {
+      width: 140px;
+      height: 90px;
+      border-radius: 8px;
+      background: var(--primary-5);
+      border: 2px dashed var(--primary-20);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      position: relative;
+    }
+    .wizard-mock-doc.uploaded {
+      border-style: solid;
+      border-color: #16a34a;
+      background: #f0fdf4;
+    }
+    .wizard-mock-doc-label {
+      font-size: 11px;
+      color: var(--subtitle-on-bg);
+      font-weight: 500;
+    }
+    .wizard-mock-doc.uploaded .wizard-mock-doc-label {
+      color: #16a34a;
+    }
+    .wizard-mock-check {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #16a34a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wizard-selfie {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: var(--primary-5);
+      border: 3px solid var(--primary-20);
+      margin: 0 auto 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .wizard-selfie.captured {
+      border-color: #16a34a;
+      background: #f0fdf4;
+    }
+
+    .wizard-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--primary-12);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: wizard-spin 0.8s linear infinite;
+      margin: 0 auto 24px;
+    }
+    @keyframes wizard-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .wizard-success-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      border-radius: 50%;
+      background: #dcfce7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   </style>
 </head>
 <body>
-  <div id="root">${html}</div>
+  <div id="root" data-ial="${escapeAttr(ial)}">${html}</div>
+
+  <!-- ID Verification Wizard (shown after sign-in when IAL2 required) -->
+  <div id="verify-wizard" class="wizard">
+    <div class="form-panel" style="justify-content: center; align-items: center;">
+      <div class="form-content" style="justify-content: center;">
+
+        <div class="wizard-progress">
+          <div class="wizard-progress-bar" id="wp-1"></div>
+          <div class="wizard-progress-bar" id="wp-2"></div>
+          <div class="wizard-progress-bar" id="wp-3"></div>
+          <div class="wizard-progress-bar" id="wp-4"></div>
+        </div>
+
+        <!-- Step 1: Intro -->
+        <div class="wizard-step active" data-step="1">
+          <div class="wizard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h2 class="wizard-title">Verify your identity</h2>
+          <p class="wizard-desc">We need to verify your identity to continue.<br/>You'll need a government-issued photo ID.</p>
+          <button type="button" class="wizard-btn" data-wizard-next>Continue</button>
+        </div>
+
+        <!-- Step 2: Document Upload -->
+        <div class="wizard-step" data-step="2">
+          <div class="wizard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+            </svg>
+          </div>
+          <h2 class="wizard-title">Upload your ID</h2>
+          <p class="wizard-desc">Photos of your driver's license have been captured.</p>
+          <div class="wizard-mock-upload">
+            <div class="wizard-mock-doc uploaded">
+              <div class="wizard-mock-check">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <span class="wizard-mock-doc-label">Front</span>
+            </div>
+            <div class="wizard-mock-doc uploaded">
+              <div class="wizard-mock-check">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <span class="wizard-mock-doc-label">Back</span>
+            </div>
+          </div>
+          <button type="button" class="wizard-btn" data-wizard-next>Continue</button>
+        </div>
+
+        <!-- Step 3: Selfie -->
+        <div class="wizard-step" data-step="3">
+          <div class="wizard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+          <h2 class="wizard-title">Selfie captured</h2>
+          <p class="wizard-desc">Your photo has been taken for facial comparison.</p>
+          <div class="wizard-selfie captured">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5">
+              <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/>
+            </svg>
+          </div>
+          <button type="button" class="wizard-btn" data-wizard-next>Continue</button>
+        </div>
+
+        <!-- Step 4: Processing -->
+        <div class="wizard-step" data-step="4">
+          <div class="wizard-spinner"></div>
+          <h2 class="wizard-title">Verifying your identity</h2>
+          <p class="wizard-desc">Checking your documents and photo. This will only take a moment.</p>
+        </div>
+
+        <!-- Step 5: Success -->
+        <div class="wizard-step" data-step="5">
+          <div class="wizard-success-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <h2 class="wizard-title">Identity verified</h2>
+          <p class="wizard-desc">Your identity has been successfully verified.</p>
+          <button type="button" class="wizard-btn" id="wizard-finish">Continue to service</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <script>
+    var __ial = document.getElementById('root').getAttribute('data-ial');
+    var __userId = null;
+
+    // Check if returning from social OAuth with verify flag
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('verify') === '1' && __ial === '2') {
+        // User is already authenticated via social login — fetch session to get userId
+        fetch('/api/auth/get-session', { credentials: 'include' })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data && data.user && data.user.id) {
+              startWizardOrRedirect(data.user.id);
+            }
+          })
+          .catch(function() {});
+      }
+    })();
+
+    function startWizardOrRedirect(userId) {
+      if (__ial === '2') {
+        __userId = userId;
+        document.getElementById('root').style.display = 'none';
+        document.getElementById('verify-wizard').classList.add('active');
+        document.getElementById('wp-1').classList.add('done');
+        return true;
+      }
+      return false;
+    }
+
+    function completeRedirect() {
+      var sessionId = (document.querySelector('input[name="session_id"]') || {}).value || '';
+      if (sessionId) {
+        window.location.href = '/api/auth-flow/complete-login?session_id=' + encodeURIComponent(sessionId);
+      } else {
+        window.location.href = '/dashboard';
+      }
+    }
+
     (function() {
       var form = document.getElementById('sign-in-form');
       var emailInput = document.getElementById('email');
@@ -391,11 +679,9 @@ export function renderPage(
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(result) {
           if (result.ok) {
-            var sid = form.querySelector('input[name="session_id"]').value;
-            if (sid) {
-              window.location.href = '/api/auth-flow/complete-login?session_id=' + encodeURIComponent(sid);
-            } else {
-              window.location.href = '/dashboard';
+            var uid = result.data && result.data.user && result.data.user.id;
+            if (!startWizardOrRedirect(uid)) {
+              completeRedirect();
             }
             return;
           }
@@ -416,11 +702,9 @@ export function renderPage(
           .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
           .then(function(signupResult) {
             if (signupResult.ok) {
-              var sid = form.querySelector('input[name="session_id"]').value;
-              if (sid) {
-                window.location.href = '/api/auth-flow/complete-login?session_id=' + encodeURIComponent(sid);
-              } else {
-                window.location.href = '/dashboard';
+              var uid = signupResult.data && signupResult.data.user && signupResult.data.user.id;
+              if (!startWizardOrRedirect(uid)) {
+                completeRedirect();
               }
             } else {
               btn.disabled = false;
@@ -461,9 +745,15 @@ export function renderPage(
           btn.style.opacity = '0.6';
           btn.style.pointerEvents = 'none';
 
-          var callbackURL = sessionId
-            ? '/api/auth-flow/complete-login?session_id=' + encodeURIComponent(sessionId)
-            : '/dashboard';
+          var callbackURL;
+          if (__ial === '2' && sessionId) {
+            // Redirect back to sign-in page to show the wizard
+            callbackURL = '/sign-in?session_id=' + encodeURIComponent(sessionId) + '&ial=2&verify=1';
+          } else if (sessionId) {
+            callbackURL = '/api/auth-flow/complete-login?session_id=' + encodeURIComponent(sessionId);
+          } else {
+            callbackURL = '/dashboard';
+          }
 
           fetch('/api/auth/sign-in/social', {
             method: 'POST',
@@ -488,6 +778,68 @@ export function renderPage(
             btn.style.opacity = '';
             btn.style.pointerEvents = '';
           });
+        });
+      });
+    })();
+
+    // ── ID Verification Wizard ──────────────────────────────
+    (function() {
+      var wizard = document.getElementById('verify-wizard');
+      var steps = wizard.querySelectorAll('.wizard-step');
+      var bars = wizard.querySelectorAll('.wizard-progress-bar');
+      var currentStep = 1;
+
+      function goToStep(n) {
+        currentStep = n;
+        steps.forEach(function(s) { s.classList.remove('active'); });
+        var target = wizard.querySelector('[data-step="' + n + '"]');
+        if (target) target.classList.add('active');
+        bars.forEach(function(b, i) {
+          if (i < n) b.classList.add('done');
+        });
+
+        // Step 4 (processing) auto-advances after 2s
+        if (n === 4) {
+          setTimeout(function() { goToStep(5); }, 2000);
+        }
+      }
+
+      // "Continue" buttons advance to next step
+      wizard.querySelectorAll('[data-wizard-next]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          goToStep(currentStep + 1);
+        });
+      });
+
+      // "Continue to service" — call mock-verify then redirect
+      var finishBtn = document.getElementById('wizard-finish');
+      finishBtn.addEventListener('click', function() {
+        finishBtn.disabled = true;
+        finishBtn.textContent = 'Redirecting\u2026';
+
+        var sessionId = (document.querySelector('input[name="session_id"]') || {}).value || '';
+
+        fetch('/api/auth-flow/mock-verify', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            userId: __userId
+          })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.ok) {
+            completeRedirect();
+          } else {
+            finishBtn.disabled = false;
+            finishBtn.textContent = 'Continue to service';
+          }
+        })
+        .catch(function() {
+          finishBtn.disabled = false;
+          finishBtn.textContent = 'Continue to service';
         });
       });
     })();
