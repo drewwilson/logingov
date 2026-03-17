@@ -50,8 +50,12 @@ const TARGET_TABLES = [
   "user_emails",
   "credentials",
   "service_providers",
+  "agencies",
   "auth_codes",
   "identity_events",
+  "user",
+  "account",
+  "session",
 ];
 
 /** Query PostgreSQL source and return table summaries */
@@ -673,8 +677,15 @@ const DATABASE_HTML = `<!DOCTYPE html>
         <div class="schema-row">
           <div class="col-source">email <span class="col-type">VARCHAR</span></div>
           <div class="col-arrow"><span class="transform-tag tag-direct">direct</span></div>
-          <div class="col-target">email <span class="col-type">VARCHAR(255)</span></div>
+          <div class="col-target">email <span class="col-type">TEXT</span></div>
         </div>
+
+        <div class="schema-row">
+          <div class="col-source">email <span class="col-type">VARCHAR</span></div>
+          <div class="col-arrow"><span class="transform-tag tag-generate">generate</span></div>
+          <div class="col-target">email_blind_index <span class="col-type">VARCHAR(64)</span></div>
+        </div>
+        <div class="info-box">HMAC-SHA256 of the normalized email for secure lookups without decrypting. NOT NULL, UNIQUE.</div>
 
         <div class="schema-row">
           <div class="col-source">confirmed_at <span class="col-type">TIMESTAMP</span></div>
@@ -751,8 +762,17 @@ const DATABASE_HTML = `<!DOCTYPE html>
         </div>
 
         <div class="separator"></div>
+
+        <div class="schema-row">
+          <div class="col-source">uuid <span class="col-type">VARCHAR</span></div>
+          <div class="col-arrow"><span class="transform-tag tag-rename">rename</span></div>
+          <div class="col-target">legacy_uuid <span class="col-type">VARCHAR(36)</span></div>
+        </div>
+        <div class="info-box">Old Rails UUID preserved for pairwise <code>sub</code> backward compatibility with existing service providers.</div>
+
+        <div class="separator"></div>
         <div class="not-migrated">
-          Dropped: <code>uuid</code> (superseded by UUID v7), <code>encrypted_email</code> / <code>encrypted_email_iv</code> (plaintext email used instead), <code>otp_required_for_login</code> (derived from credentials)
+          Dropped: <code>encrypted_email</code> / <code>encrypted_email_iv</code> (plaintext email used instead), <code>otp_required_for_login</code> (derived from credentials)
         </div>
       </div>
     </div>
@@ -998,8 +1018,8 @@ const DATABASE_HTML = `<!DOCTYPE html>
 
         <div class="separator"></div>
         <div class="not-migrated">
-          Dropped: <code>id</code> (integer PK, replaced by issuer), <code>agency</code><br>
-          New nullable columns: <code>saml_metadata_url</code>, <code>push_notification_url</code>, <code>post_logout_redirect_uris</code>
+          Dropped: <code>id</code> (integer PK, replaced by issuer)<br>
+          New nullable columns: <code>saml_metadata_url</code>, <code>push_notification_url</code>, <code>post_logout_redirect_uris</code>, <code>theme</code> (JSON blob for hosted sign-in page), <code>agency_id</code> (FK to agencies table)
         </div>
       </div>
     </div>
@@ -1079,6 +1099,56 @@ const DATABASE_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- ════════════════════════════════════════════════════════ -->
+    <!-- 1f. Better Auth bridge -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div class="mapping-group">
+      <div class="mapping-group-header">
+        <span class="step">1f</span>
+        users + passwords &rarr; Better Auth user + account
+        <span class="note">Bridge records so migrated users can sign in</span>
+      </div>
+      <div class="mapping-body">
+        <div class="schema-row">
+          <div class="col-source table-name">users + passwords <span class="col-type">PostgreSQL</span></div>
+          <div class="col-arrow"></div>
+          <div class="col-target table-name">user + account <span class="col-type">MySQL (Better Auth)</span></div>
+        </div>
+
+        <div class="schema-row">
+          <div class="col-source">users.id &rarr; UUID v7 <span class="col-type">mapped</span></div>
+          <div class="col-arrow"><span class="transform-tag tag-transform">transform</span></div>
+          <div class="col-target">user.id <span class="col-type">VARCHAR(36)</span></div>
+        </div>
+
+        <div class="schema-row">
+          <div class="col-source">users.email <span class="col-type">VARCHAR</span></div>
+          <div class="col-arrow"><span class="transform-tag tag-direct">direct</span></div>
+          <div class="col-target">user.email <span class="col-type">VARCHAR(255)</span></div>
+        </div>
+
+        <div class="schema-row">
+          <div class="col-source">users.email <span class="col-type">VARCHAR</span></div>
+          <div class="col-arrow"><span class="transform-tag tag-transform">transform</span></div>
+          <div class="col-target">user.name <span class="col-type">VARCHAR(255)</span></div>
+        </div>
+        <div class="info-box">Name derived from email prefix: <code>jane.doe@agency.gov</code> &rarr; <code>jane doe</code></div>
+
+        <div class="schema-row">
+          <div class="col-source">passwords.encrypted_password <span class="col-type">VARCHAR</span></div>
+          <div class="col-arrow"><span class="transform-tag tag-transform">transform</span></div>
+          <div class="col-target">account.password <span class="col-type">TEXT</span></div>
+        </div>
+        <div class="info-box">Bcrypt hash prefixed with <code>migrated_bcrypt:</code> so the lazy rehash hook in auth.ts can detect and convert to scrypt on first login.</div>
+
+        <div class="schema-row">
+          <div class="col-source col-empty"></div>
+          <div class="col-arrow"><span class="transform-tag tag-generate">generate</span></div>
+          <div class="col-target">account.providerId = "credential" <span class="col-type">VARCHAR(255)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════ -->
     <!-- Tables NOT migrated -->
     <!-- ════════════════════════════════════════════════════════ -->
     <div class="tables-not-migrated">
@@ -1088,7 +1158,9 @@ const DATABASE_HTML = `<!DOCTYPE html>
       </div>
       <h3 style="margin-top:0.75rem">Target tables not populated by migration</h3>
       <div class="skip-list">
-        <div class="skip-item">auth_codes &mdash; ephemeral, created at runtime</div>
+        <div class="skip-item">auth_codes &mdash; ephemeral, created at runtime (columns: ial, aal, acr)</div>
+        <div class="skip-item">agencies &mdash; managed by local-only agency-admin dashboard</div>
+        <div class="skip-item">session, verification, twoFactor &mdash; Better Auth creates at runtime</div>
       </div>
     </div>
 

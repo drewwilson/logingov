@@ -22,7 +22,9 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "lint": "echo TODO",
-    "dev:agency-admin": "pnpm --filter @logingov/agency-admin dev"
+    "dev:agency-admin": "pnpm --filter @logingov/agency-admin dev",
+    "dev:demo-agency": "wrangler dev --config packages/demo-agency/wrangler.toml --port 8788",
+    "deploy": "wrangler deploy && wrangler deploy --config packages/demo-agency/wrangler.toml"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250312.0",

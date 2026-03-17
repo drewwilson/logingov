@@ -1,0 +1,49 @@
+name = "logingov-demo-agency"
+main = "src/index.ts"
+compatibility_date = "2025-03-10"
+compatibility_flags = ["nodejs_compat"]
+
+# Service binding for Worker-to-Worker calls (token exchange, userinfo)
+[[services]]
+binding = "AUTH_CORE"
+service = "logingov"
+
+[vars]
+AUTH_CORE_URL = "https://logingov.drew-206.workers.dev"
+CLIENT_ID = "urn:gov:gsa:openidconnect.profiles:sp:sso:irs:app"
+AGENCY_ID = "beb2fd51-a3ca-4d38-b7bb-3f53459aa07f"  # ← paste your agency UUID here after creating it in the agency admin UI
+# aud for client_assertion JWT — must match auth-core's hardcoded value
+TOKEN_ENDPOINT_AUD = "https://secure.login.gov/api/openid_connect/token"
+
+# For production, move these to wrangler secrets instead of vars
+ADMIN_API_KEY = "demo-admin-key-change-me"
+DEMO_SP_PRIVATE_KEY = """
+-----BEGIN PRIVATE KEY-----
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDZWAY3rzRVq/yC
+ISc1KIJOwTF4Vq9sD64ahfxG38fv2RG80WH+ZzOT7AQzAV+JCOX7idXltyPG+FPI
+qDHfvPRVvt7bPjNAtOgxOFIqo58LI4/7I71MOcB3vi2Fmf2PfXCu5OkPOWmkSvHp
+7MfIKzoyRew8MIdqne8cL7dmlh0sOcBMRLMgwm1B4PQaECVrh1hcdqDZMmYSiF83
+Jb//TnHZJV3O5rTb90Xi2XBUQ15e6uj+dob1e2J/EI4vTR018cK2LE76/Q/f4fW0
+Dita0AdOsNPdY8KK6BS2KjfLH1t/LV1IfxGg+/iqW/cuEq820+SzUpOPnF0+NcLF
+IM8L9MEfAgMBAAECggEABdBF8k1ccAI2seBjJRfdTG/8e8SN0q0ksg7tbZPkzDSZ
+Ndy/60claQqCHj8mKAs146GPOCLK8TKJQy/EjcCHJJgDbAfg5RUxtMdV41AXG/wq
+iMQu9xAAZvOOUimJT8JCNltnJIIbokpi6CfuPBtz5g5awE1oAeERmUZpeHQBecJR
+FEQWznVZOaMdPgM1qffX9LQwEbdICGWh/QqSZ+Wu4w2am2xXomhVs1D/8ByPqrGT
+e3WSFxXF2TWRvKHMPvy92cQIIiJuEEndWvMQJFbGoYfsH+CAXkKqnGEtSxSYC2zA
+fG/s/FID3+OnPwTZq8gz+GBLvEdj318cXqyYGLpuIQKBgQDw+nGNq6mDwO16WfZr
+VQnEjY9jlTTQyZzCXFjEVK1eY8KQnRgVUWHAP5UR8SPmWpurIj8KD4r8ODqvvU4o
+DyxWrb8ECsEL8qwxeWQk3T2/1aeVO1KFHQZIKqsJJaX7yOgvIqMVzfRmQJn9AumT
+IJpfy+1axQheu6cW3pb9UwRJ8QKBgQDm5GtzXD+oX8BhfXE/1I3xxmmJN9GEZEce
+368gZiAohrFFq3ZDbfc0M3Kf8NmyP2sb1C1UyeuXDhzZmMNkm5ntWJ4VUbQsa2Ui
+TZZxeclWwv7HyiK6eGQ6NfN5YQAADlv5jCuC3wEeLtQQ2hjMjR2pnsbnODt5ga77
+qtCuCu8sDwKBgFNlyVDHXRY8+bMDWXXR61x7xWkoZSvw6nCVdx8TUyC8k8RqqcAO
+9y6KkrOv6cW6C+/RHVIFCQu7Bgx2DotsnOKupNHoSuEwrgk9QrxDWTB/58yMyEVL
+QzZMlf7HacdWw4w0h45vRarxpplana2Odf67W7yzPe9TMEOI62ZmibBxAoGABrfw
+1HuDsq+Oloei6vuRYc6nNYH1S8frNd/GZcfy+Zrpv6A8obuqbM9ub27/tqsXv8iN
+xSDXBR85Aa/rR5srgHeKqg4lkwFRAQ2G6ihkDm1AIqokFo74Q6VcP1TuPhIs5PcK
+MRWyH6G3NAJUpGcazNu85+9/84otgE85IUdaLEsCgYAtFH/Ok0fIU+uKMJ1zaAvi
+1ygryp3lr9Qsu88pw2rlvOblHd9iVUmdZwBMJXDrOQb26kLceAc3InojSpHD3MDM
+RXTFqPpjcybHXD8b7oaivjxrAv1ua+tAXcOQxqnp4Wk5ESPWtLQYq39E0N8qYAAa
+UGLBOcb2OsNfUzP0DnK7JA==
+-----END PRIVATE KEY-----
+"""

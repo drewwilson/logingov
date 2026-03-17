@@ -4,6 +4,77 @@ Complete request lifecycle for account creation, sign-in, and sign-out — from 
 
 ---
 
+## How Agency-to-Login.gov Routing Works
+
+When an agency already uses login.gov and we deploy our new infrastructure, the OIDC contract stays identical — agencies don't change anything on their side. Here's the full round-trip a user takes:
+
+### The Round-Trip
+
+**Step 1: Agency redirects user to Login.gov.**
+The agency's app has a "Sign in" button that sends the user's browser to our `/openid_connect/authorize` endpoint with a set of pre-registered parameters:
+
+- `client_id` — identifies which agency app is asking (registered during onboarding)
+- `redirect_uri` — where to send the user back (must match what's on file, must be HTTPS)
+- `state` — a random value the agency generates for CSRF protection
+- `nonce` — a random value to prevent token replay attacks
+- `scope` — what user attributes the agency wants (email, name, etc.)
+- `acr_values` — what assurance level is needed (just auth, or full identity verification)
+- `code_challenge` — PKCE value for the code exchange (if using PKCE flow)
+
+We validate `client_id` and `redirect_uri` against our service provider registry. If they don't match, the request is rejected.
+
+**Step 2: User authenticates on our hosted UI.**
+The user sees our login/signup pages, enters credentials, completes MFA, etc. This all happens on our domain. Our session cookies live entirely on our domain — the agency never sees them.
+
+**Step 3: We redirect the user back to the agency.**
+After successful authentication, we 302 redirect the user's browser to the agency's `redirect_uri` with two query parameters:
+
+```
+https://agency.gov/auth/callback?code=abc123&state=<same-state-value>
+```
+
+- `code` — a one-time authorization code (expires in 10 minutes, single-use)
+- `state` — echoed back so the agency can verify it matches what they originally sent
+
+**Step 4: Agency exchanges the code for tokens (server-to-server).**
+The agency's backend directly calls our `/api/openid_connect/token` endpoint — this is NOT a browser redirect, it's a server-to-server HTTP POST. They send:
+
+- The `code` they received
+- A signed JWT (`client_assertion`) proving the agency's identity, OR
+- A `code_verifier` proving they initiated the PKCE flow
+
+We return:
+
+- `id_token` — a signed JWT containing the user's `sub` (UUID), email, assurance levels, etc.
+- `access_token` — a Bearer token for calling our `/api/openid_connect/userinfo` endpoint if they need more attributes
+
+**Step 5: The agency creates its own session.**
+The agency validates the `id_token` by checking the RS256 signature against our published JWKS keys, verifying the `nonce` and `aud` claims, and confirming expiration. Once validated, the agency creates its own session/cookie. From this point on, the user is "signed in" to the agency — we're out of the picture.
+
+### Key Questions Answered
+
+**Does the user carry a cookie between domains?** No. No cross-domain cookies are involved. The user has a login.gov session cookie on _our_ domain (enabling SSO — if they visit another agency, they won't need to re-authenticate), but agencies never see this cookie. The entire trust handoff happens via the authorization code and the signed `id_token`.
+
+**How does the agency know the user is signed in?** Through the cryptographically signed `id_token`. It's an RS256 JWT — the agency verifies the signature using our published JWKS keys. If the signature is valid and the claims check out (`aud` matches their `client_id`, `nonce` matches, token isn't expired), the user is authenticated.
+
+**How does the user get routed back to the right agency?** Via the `redirect_uri` that was pre-registered during agency onboarding and included in the authorization request. We validate it matches what's on file before ever redirecting — this prevents open redirect attacks.
+
+**What about SSO across agencies?** If a user is already signed in to login.gov (has an active session cookie on our domain), and a second agency redirects them to us, we can skip the authentication step and immediately issue a new authorization code for that second agency. The user gets a seamless experience without re-entering credentials.
+
+### Backward Compatibility with the Old Login.gov
+
+Since this is a full rebuild, backward compatibility means preserving:
+
+1. **Same OIDC endpoints** — `/openid_connect/authorize`, `/api/openid_connect/token`, `/api/openid_connect/userinfo`, `/openid_connect/logout`
+2. **Same service provider registry** — migrated `client_id` / `redirect_uri` pairs from the old system
+3. **Same signing key format** — published JWKS at `/.well-known/openid-configuration` so existing agency token validation continues working (keys can be rotated, but the format and discovery endpoint stay the same)
+4. **Same `id_token` claims** — `sub` UUIDs must map to the same users, same claim names and structures
+5. **Same SAML endpoints** — for agencies using SAML instead of OIDC
+
+Agencies don't need to change their integration code. The DNS cutover points `secure.login.gov` at our new Cloudflare Workers infrastructure, and the OIDC/SAML contract is identical.
+
+---
+
 ## 1. Account Creation (Sign-Up)
 
 ```
@@ -69,14 +140,14 @@ Browser                     Cloudflare Worker              SessionDO            
 
 ### What gets stored
 
-| Store | Key / Table | Data | Lifetime |
-|-------|------------|------|----------|
-| PlanetScale | `user` row | id, encrypted email, emailBlindIndex, ial=1, locale | Permanent |
-| PlanetScale | `account` row | userId, providerId="credential" | Permanent |
-| PlanetScale | `session` row | userId, token (unique), expiresAt, ipAddress, userAgent | 15 min (refreshed on access) |
-| SessionDO | DurableObject storage | OIDC flow state (client_id, scopes, PKCE, acr) | 15 min (alarm) |
-| Queue | logingov-email | Email verification JWT (24h exp) | Consumed async |
-| Queue | logingov-audit | account_created event | Consumed → D1 + R2 |
+| Store       | Key / Table           | Data                                                    | Lifetime                     |
+| ----------- | --------------------- | ------------------------------------------------------- | ---------------------------- |
+| PlanetScale | `user` row            | id, encrypted email, emailBlindIndex, ial=1, locale     | Permanent                    |
+| PlanetScale | `account` row         | userId, providerId="credential"                         | Permanent                    |
+| PlanetScale | `session` row         | userId, token (unique), expiresAt, ipAddress, userAgent | 15 min (refreshed on access) |
+| SessionDO   | DurableObject storage | OIDC flow state (client_id, scopes, PKCE, acr)          | 15 min (alarm)               |
+| Queue       | logingov-email        | Email verification JWT (24h exp)                        | Consumed async               |
+| Queue       | logingov-audit        | account_created event                                   | Consumed → D1 + R2           |
 
 ---
 
@@ -243,28 +314,28 @@ SP Backend                       │                            │             
 
 ### KV state after successful sign-in
 
-| KV Key | Value | TTL | Purge trigger |
-|--------|-------|-----|---------------|
-| `access_token:{token}` | `{ userId, scopes, spId }` | 900s (15 min) | TTL expiry or logout |
-| `rate:{ip}:/openid_connect/authorize` | sliding window counter | 60s | TTL expiry |
-| `mfa_attempts:{userId}` | failure count | 900s (15 min) | TTL expiry |
-| `totp_replay:{userId}:{timestep}` | `"1"` | 90s | TTL expiry |
+| KV Key                                | Value                      | TTL           | Purge trigger        |
+| ------------------------------------- | -------------------------- | ------------- | -------------------- |
+| `access_token:{token}`                | `{ userId, scopes, spId }` | 900s (15 min) | TTL expiry or logout |
+| `rate:{ip}:/openid_connect/authorize` | sliding window counter     | 60s           | TTL expiry           |
+| `mfa_attempts:{userId}`               | failure count              | 900s (15 min) | TTL expiry           |
+| `totp_replay:{userId}:{timestep}`     | `"1"`                      | 90s           | TTL expiry           |
 
 ### SessionDO state after successful sign-in
 
-| Field | Value | Notes |
-|-------|-------|-------|
-| `state` | `"code_issued"` | Terminal state for this flow |
-| `userId` | UUID | Set during authentication |
-| `client_id` | SP issuer URI | From authorize request |
-| `scopes` | `["openid", "email", ...]` | From authorize request |
-| `code_challenge` | S256 hash | From authorize request |
-| `nonce` | 22+ char string | From authorize request |
-| `ial` | 1 or 2 | Resolved from acr_values |
-| `aal` | 1 or 2 | Resolved from acr_values |
-| `mfaMethod` | `"totp"` / `"webauthn"` / etc. | Set during MFA |
-| `expiresAt` | Unix timestamp | 15 min from creation |
-| **Alarm** | fires at `expiresAt` | Calls `deleteAll()` to purge |
+| Field            | Value                          | Notes                        |
+| ---------------- | ------------------------------ | ---------------------------- |
+| `state`          | `"code_issued"`                | Terminal state for this flow |
+| `userId`         | UUID                           | Set during authentication    |
+| `client_id`      | SP issuer URI                  | From authorize request       |
+| `scopes`         | `["openid", "email", ...]`     | From authorize request       |
+| `code_challenge` | S256 hash                      | From authorize request       |
+| `nonce`          | 22+ char string                | From authorize request       |
+| `ial`            | 1 or 2                         | Resolved from acr_values     |
+| `aal`            | 1 or 2                         | Resolved from acr_values     |
+| `mfaMethod`      | `"totp"` / `"webauthn"` / etc. | Set during MFA               |
+| `expiresAt`      | Unix timestamp                 | 15 min from creation         |
+| **Alarm**        | fires at `expiresAt`           | Calls `deleteAll()` to purge |
 
 ---
 
@@ -311,13 +382,13 @@ Browser                     Cloudflare Worker              SessionDO            
 
 ### What gets cleaned up on logout
 
-| Store | What | How |
-|-------|------|-----|
-| SessionDO | All DurableObject storage | `deleteAll()` + alarm cancelled |
-| PlanetScale | `session` row | DELETE by session token |
-| KV | `access_token:{token}` | Explicit `kvDelete()` |
-| Queue | session-revoked SET | Published to logingov-set for delivery to SP |
-| Queue | logout audit event | Published to logingov-audit → D1 + R2 |
+| Store       | What                      | How                                          |
+| ----------- | ------------------------- | -------------------------------------------- |
+| SessionDO   | All DurableObject storage | `deleteAll()` + alarm cancelled              |
+| PlanetScale | `session` row             | DELETE by session token                      |
+| KV          | `access_token:{token}`    | Explicit `kvDelete()`                        |
+| Queue       | session-revoked SET       | Published to logingov-set for delivery to SP |
+| Queue       | logout audit event        | Published to logingov-audit → D1 + R2        |
 
 ---
 
@@ -325,12 +396,12 @@ Browser                     Cloudflare Worker              SessionDO            
 
 ### KV Namespaces
 
-| Namespace | Purpose |
-|-----------|---------|
-| `KV_SESSIONS` | Access tokens, PAR request objects |
-| `KV_OTP` | SMS/TOTP codes, WebAuthn challenges |
-| `KV_RATE_LIMIT` | Per-IP and per-user rate counters |
-| `KV_JWKS` | Cached JWKS public keys and signing keys |
+| Namespace       | Purpose                                  |
+| --------------- | ---------------------------------------- |
+| `KV_SESSIONS`   | Access tokens, PAR request objects       |
+| `KV_OTP`        | SMS/TOTP codes, WebAuthn challenges      |
+| `KV_RATE_LIMIT` | Per-IP and per-user rate counters        |
+| `KV_JWKS`       | Cached JWKS public keys and signing keys |
 
 ### All KV Keys and Their Lifecycles
 
@@ -404,11 +475,11 @@ KV_JWKS
 
 ### KV Purge Summary
 
-| Purge Method | Used For | Mechanism |
-|-------------|----------|-----------|
-| **TTL expiry** | All KV keys | Cloudflare automatically deletes after TTL. No action needed. |
-| **Explicit delete** | Access tokens, OTP codes, WebAuthn challenges | `kvDelete()` called on logout or successful verification |
-| **Overwrite** | JWKS cache, rate limit counters | New value replaces old on rotation or window reset |
+| Purge Method        | Used For                                      | Mechanism                                                     |
+| ------------------- | --------------------------------------------- | ------------------------------------------------------------- |
+| **TTL expiry**      | All KV keys                                   | Cloudflare automatically deletes after TTL. No action needed. |
+| **Explicit delete** | Access tokens, OTP codes, WebAuthn challenges | `kvDelete()` called on logout or successful verification      |
+| **Overwrite**       | JWKS cache, rate limit counters               | New value replaces old on rotation or window reset            |
 
 ---
 
@@ -456,8 +527,8 @@ Timeline (not to scale)
 
 ### Cron-Based Cleanup
 
-| Schedule | Worker | Action |
-|----------|--------|--------|
+| Schedule    | Worker    | Action                                                        |
+| ----------- | --------- | ------------------------------------------------------------- |
 | Every 5 min | auth-core | Delete expired auth_codes from D1 (`WHERE expiresAt < NOW()`) |
-| Hourly | infra | Check JWKS key age; rotate if > 23h; update KV cache |
-| Daily | infra | Audit log flush (available for future archival jobs) |
+| Hourly      | infra     | Check JWKS key age; rotate if > 23h; update KV cache          |
+| Daily       | infra     | Audit log flush (available for future archival jobs)          |

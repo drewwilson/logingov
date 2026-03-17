@@ -166,6 +166,19 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  packages/demo-agency:
+    dependencies:
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.8
+      jose:
+        specifier: ^6.2.1
+        version: 6.2.1
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   packages/hosted-ui:
     dependencies:
       '@logingov/shared':

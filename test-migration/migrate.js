@@ -516,6 +516,7 @@ async function migrateBetterAuthAccounts(pgClient, mysqlConn, dryRun) {
     providerId VARCHAR(255) NOT NULL,
     accessToken TEXT,
     refreshToken TEXT,
+    idToken TEXT,
     accessTokenExpiresAt TIMESTAMP NULL,
     refreshTokenExpiresAt TIMESTAMP NULL,
     scope TEXT,
@@ -685,6 +686,7 @@ async function resetTarget(mysqlConn) {
     "credentials",
     "user_emails",
     "service_providers",
+    "agencies",
     "user",
     "users",
   ];

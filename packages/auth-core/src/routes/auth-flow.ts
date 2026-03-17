@@ -1,5 +1,5 @@
 /**
- * Auth Flow Orchestration — POST /api/auth-flow/complete-login, /api/auth-flow/issue-code
+ * Auth Flow Orchestration — /api/auth-flow/complete-login, /api/auth-flow/issue-code
  *
  * After Better Auth authenticates the user, these routes check MFA requirements
  * and issue OIDC authorization codes with the correct IAL/AAL/ACR claims.
@@ -10,8 +10,10 @@ import { eq } from "drizzle-orm";
 import type { Env } from "@logingov/shared";
 import { AppError, authCodes, credentials, uuidV7 } from "@logingov/shared";
 import { users } from "@logingov/shared/schema";
-import { encrypt, importKey } from "@logingov/shared/crypto";
+import { encrypt, importKey, computeBlindIndex } from "@logingov/shared/crypto";
 import type { SessionState } from "@logingov/session-do";
+import { createAuth } from "../auth.js";
+import { user as betterAuthUser } from "../schema.js";
 
 const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -59,6 +61,42 @@ function determineAcr(
   return "urn:acr.login.gov:auth-only";
 }
 
+/**
+ * Ensure a record exists in the shared `users` table for this Better Auth user.
+ * Better Auth manages its own `user` table; the OIDC userinfo endpoint reads
+ * from the shared `users` table. This bridges the two on first login.
+ */
+async function ensureSharedUser(
+  env: Env,
+  userId: string,
+  email: string
+): Promise<void> {
+  const db = getDb(env);
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (existing.length > 0) return;
+
+  const cryptoKey = await importKey(env.ENCRYPTION_KEY);
+  const encryptedEmail = await encrypt(email, cryptoKey);
+  const emailBlindIdx = await computeBlindIndex(email, env.ENCRYPTION_KEY);
+  const now = new Date().toISOString();
+
+  await db.insert(users).values({
+    id: userId,
+    email: encryptedEmail,
+    emailBlindIndex: emailBlindIdx,
+    emailVerifiedAt: now,
+    ial: 1,
+    locale: "en",
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 // ── POST /api/auth-flow/complete-login ───────────────────────
 
 authFlowRoute.post("/api/auth-flow/complete-login", async (c) => {
@@ -73,6 +111,21 @@ authFlowRoute.post("/api/auth-flow/complete-login", async (c) => {
       "sessionId and userId are required",
       400
     );
+  }
+
+  // Sync to shared users table (needed for userinfo endpoint)
+  try {
+    const db = getDb(c.env);
+    const baUser = await db
+      .select({ email: betterAuthUser.email })
+      .from(betterAuthUser)
+      .where(eq(betterAuthUser.id, userId))
+      .limit(1);
+    if (baUser.length > 0) {
+      await ensureSharedUser(c.env, userId, baUser[0].email);
+    }
+  } catch (err) {
+    console.warn("[complete-login POST] ensureSharedUser error:", err);
   }
 
   const session = await getSessionState(c.env, sessionId);
@@ -134,6 +187,90 @@ authFlowRoute.post("/api/auth-flow/complete-login", async (c) => {
     code,
     state: session.state,
   });
+});
+
+// ── GET /api/auth-flow/complete-login ─────────────────────────
+// Used by social OAuth and the ID verification wizard's completeRedirect().
+// Better Auth redirects here (HTTP 302) after the OAuth callback, so this
+// must be a GET handler that issues an auth code and redirects to the SP.
+
+authFlowRoute.get("/api/auth-flow/complete-login", async (c) => {
+  const sessionId = c.req.query("session_id");
+  if (!sessionId) {
+    return c.redirect("/sign-in");
+  }
+
+  // The user is already authenticated — Better Auth set a session cookie
+  // during the OAuth callback. Retrieve it to get the userId.
+  let userId: string;
+  try {
+    const auth = createAuth(c.env);
+    const betterAuthSession = await auth.api.getSession({
+      headers: c.req.raw.headers,
+    });
+    if (!betterAuthSession?.user) {
+      console.error("[complete-login GET] No Better Auth session found");
+      return c.redirect(`/sign-in?session_id=${encodeURIComponent(sessionId)}`);
+    }
+    userId = betterAuthSession.user.id;
+
+    // Sync to shared users table (needed for userinfo endpoint)
+    try {
+      await ensureSharedUser(c.env, userId, betterAuthSession.user.email);
+    } catch (err) {
+      console.warn("[complete-login GET] ensureSharedUser error:", err);
+    }
+  } catch (err) {
+    console.error("[complete-login GET] getSession error:", err);
+    return c.redirect(`/sign-in?session_id=${encodeURIComponent(sessionId)}`);
+  }
+
+  let session: SessionState;
+  try {
+    session = await getSessionState(c.env, sessionId);
+  } catch (err) {
+    console.error("[complete-login GET] getSessionState error:", err);
+    return c.redirect("/sign-in");
+  }
+
+  // If MFA is required, redirect back to sign-in for the MFA step
+  if (session.requestedAal >= 2) {
+    return c.redirect(
+      `/sign-in?session_id=${encodeURIComponent(sessionId)}&mfa=1`
+    );
+  }
+
+  // No MFA required — issue auth code and redirect to SP
+  const ial: 1 | 2 = session.achievedIal ?? session.requestedIal;
+  const aal: 1 | 2 = 1; // No MFA performed
+  const acr = determineAcr(ial, aal, session.facialMatch);
+
+  const code = uuidV7();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + AUTH_CODE_TTL_MS);
+
+  const db = getDb(c.env);
+  await db.insert(authCodes).values({
+    code,
+    userId,
+    spId: session.spId,
+    redirectUri: session.redirectUri,
+    scopes: JSON.stringify(session.scopes),
+    codeChallenge: session.codeChallenge ?? null,
+    codeChallengeMethod: session.codeChallengeMethod ?? null,
+    nonce: session.nonce ?? null,
+    ial,
+    aal,
+    acr,
+    expiresAt: expiresAt.toISOString(),
+    usedAt: null,
+    createdAt: now.toISOString(),
+  });
+
+  const url = new URL(session.redirectUri);
+  url.searchParams.set("code", code);
+  if (session.state) url.searchParams.set("state", session.state);
+  return c.redirect(url.toString());
 });
 
 // ── POST /api/auth-flow/issue-code ───────────────────────────

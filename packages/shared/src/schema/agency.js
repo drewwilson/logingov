@@ -6,10 +6,7 @@
  * the full OIDC registration in one step.
  */
 import { mysqlTable, varchar, text, int, index } from "drizzle-orm/mysql-core";
-
-export const agencies = mysqlTable(
-  "agencies",
-  {
+export const agencies = mysqlTable("agencies", {
     id: varchar("id", { length: 36 }).primaryKey(),
     iaaName: varchar("iaa_name", { length: 255 }).notNull(),
     friendlyName: varchar("friendly_name", { length: 255 }).notNull(),
@@ -25,13 +22,8 @@ export const agencies = mysqlTable(
     themeConfig: text("theme_config"),
     createdAt: varchar("created_at", { length: 30 }).notNull(),
     updatedAt: varchar("updated_at", { length: 30 }).notNull(),
-  },
-  (table) => [index("agencies_status_idx").on(table.status)]
-);
-
-export const serviceProviders = mysqlTable(
-  "service_providers",
-  {
+}, (table) => [index("agencies_status_idx").on(table.status)]);
+export const serviceProviders = mysqlTable("service_providers", {
     id: varchar("id", { length: 255 }).primaryKey(),
     agencyId: varchar("agency_id", { length: 36 }),
     name: varchar("name", { length: 255 }).notNull(),
@@ -44,6 +36,4 @@ export const serviceProviders = mysqlTable(
     postLogoutRedirectUris: text("post_logout_redirect_uris"),
     theme: text("theme"),
     createdAt: varchar("created_at", { length: 30 }).notNull(),
-  },
-  (table) => [index("service_providers_agency_id_idx").on(table.agencyId)]
-);
+}, (table) => [index("service_providers_agency_id_idx").on(table.agencyId)]);

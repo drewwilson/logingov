@@ -6,6 +6,7 @@ import * as jose from "jose";
 import { uuidV7 } from "@logingov/shared";
 import type { Env } from "@logingov/shared";
 import { kvGet, kvPut, KV_KEYS, KV_TTL } from "@logingov/shared";
+import { decrypt, importKey } from "@logingov/shared/crypto";
 
 const ISSUER = "https://secure.login.gov";
 const ID_TOKEN_EXPIRY = "5m";
@@ -25,28 +26,56 @@ export interface IdTokenClaims {
   [key: string]: unknown;
 }
 
+interface JWKSState {
+  keys: unknown[];
+  meta: Array<{ kid: string; createdAt: string; r2Key: string }>;
+}
+
 /**
- * Load the RS256 private key (JWK) from KV, falling back to R2.
+ * Load the RS256 private key (JWK) from KV cache, or decrypt from R2.
+ * The key rotation cron stores the encrypted private key in R2 and the
+ * JWKS metadata (including kid + r2Key path) in KV_JWKS.
  */
 export async function getSigningKey(env: Env): Promise<{ key: jose.CryptoKey; kid: string }> {
-  // Try KV first
-  const cached = await kvGet<{ jwk: jose.JWK; kid: string }>(env.KV_JWKS, KV_KEYS.signingKey("current"));
+  // Check for a cached (decrypted) private key in KV
+  const state = await kvGet<JWKSState>(env.KV_JWKS, KV_KEYS.jwks());
+  if (!state || state.meta.length === 0) {
+    throw new Error("No signing key found in KV — run key rotation first");
+  }
+
+  const current = state.meta[0]; // newest key is first
+
+  // Try cached decrypted key
+  const cached = await kvGet<{ jwk: jose.JWK; kid: string }>(
+    env.KV_JWKS,
+    KV_KEYS.signingKey(current.kid)
+  );
   if (cached) {
     const key = await jose.importJWK(cached.jwk, "RS256");
     return { key: key as jose.CryptoKey, kid: cached.kid };
   }
 
-  // Fall back to R2
-  const r2Object = await env.R2_KEYS.get("signing-key-current.json");
+  // Decrypt private key from R2
+  const r2Object = await env.R2_KEYS.get(current.r2Key);
   if (!r2Object) {
-    throw new Error("No signing key found in KV or R2");
+    throw new Error(`Signing key not found in R2 at ${current.r2Key}`);
   }
 
-  const keyData = await r2Object.json<{ jwk: jose.JWK; kid: string }>();
-  // Cache in KV
-  await kvPut(env.KV_JWKS, KV_KEYS.signingKey("current"), keyData, KV_TTL.JWKS);
-  const key = await jose.importJWK(keyData.jwk, "RS256");
-  return { key: key as jose.CryptoKey, kid: keyData.kid };
+  const encryptedData = await r2Object.text();
+  const encryptionKey = await importKey(env.ENCRYPTION_KEY);
+  const decryptedJson = await decrypt(encryptedData, encryptionKey);
+  const jwk = JSON.parse(decryptedJson) as jose.JWK;
+
+  // Cache decrypted key in KV (same TTL as JWKS)
+  await kvPut(
+    env.KV_JWKS,
+    KV_KEYS.signingKey(current.kid),
+    { jwk, kid: current.kid },
+    KV_TTL.JWKS
+  );
+
+  const key = await jose.importJWK(jwk, "RS256");
+  return { key: key as jose.CryptoKey, kid: current.kid };
 }
 
 /**

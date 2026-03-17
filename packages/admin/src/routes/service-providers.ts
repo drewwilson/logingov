@@ -60,6 +60,7 @@ sp.post("/", async (c) => {
   const body = await c.req.json<{
     id: string; // issuer URI
     name: string;
+    agencyId?: string; // FK to agencies.id
     ialMax?: 1 | 2;
     aalMax?: 1 | 2;
     redirectUris: string[];
@@ -127,6 +128,7 @@ sp.post("/", async (c) => {
   await db.insert(serviceProviders).values({
     id: body.id,
     name: body.name,
+    agencyId: body.agencyId ?? null,
     ialMax: ialMax as 1 | 2,
     aalMax: aalMax as 1 | 2,
     redirectUris: JSON.stringify(body.redirectUris),

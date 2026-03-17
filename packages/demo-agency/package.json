@@ -1,0 +1,16 @@
+{
+  "name": "@logingov/demo-agency",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.7.0",
+    "jose": "^6.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

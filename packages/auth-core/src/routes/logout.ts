@@ -3,18 +3,20 @@
  *
  * Supports login.gov's logout contract (client_id + post_logout_redirect_uri)
  * and standard OIDC RP-Initiated Logout (id_token_hint). Destroys the session
- * DO, emits a session-revoked SET, and redirects to the post_logout_redirect_uri.
+ * DO, revokes the Better Auth DB session, deletes access tokens from KV,
+ * emits a session-revoked SET, and redirects to the post_logout_redirect_uri.
  */
 import { Hono } from "hono";
 import * as jose from "jose";
 import type { Env } from "@logingov/shared";
-import { AppError } from "@logingov/shared";
+import { AppError, kvDelete } from "@logingov/shared";
 import { enqueue } from "@logingov/infra";
 import { createQueueMessage } from "@logingov/shared/queue";
 import type { SETOutboundPayload } from "@logingov/shared/queue";
 import { SET_EVENT_TYPES } from "@logingov/shared/types";
 import { lookupServiceProvider } from "../lib/sp-lookup.js";
 import { getSigningKey } from "../lib/token-signing.js";
+import { createAuth } from "../auth.js";
 
 const DEFAULT_LOGOUT_REDIRECT = "https://secure.login.gov";
 
@@ -83,6 +85,36 @@ logoutRoute.get("/openid_connect/logout", async (c) => {
       );
     } catch {
       // Session may already be expired/destroyed — that's fine
+    }
+  }
+
+  // ── Revoke Better Auth session (DB) ────────────────────────
+  // Get the current session from the browser cookie, then revoke it.
+  // This ensures the user's DB session row is deleted immediately.
+  try {
+    const auth = createAuth(c.env);
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (session?.session?.token) {
+      await auth.api.revokeSession({
+        headers: c.req.raw.headers,
+        body: { token: session.session.token },
+      });
+    }
+  } catch {
+    // Session may not exist or cookie may be absent — that's fine
+  }
+
+  // ── Delete access_token from KV (if provided) ──────────────
+  // Access tokens are opaque and keyed by value in KV, so we can't look them up
+  // by userId. If the caller passes the token, we delete it immediately;
+  // otherwise the 15-min KV TTL handles cleanup. The session-revoked SET
+  // notifies the SP to stop using the token regardless.
+  const accessTokenParam = c.req.query("access_token");
+  if (accessTokenParam) {
+    try {
+      await kvDelete(c.env.KV_SESSIONS, `access_token:${accessTokenParam}`);
+    } catch {
+      // Best-effort — TTL will clean it up
     }
   }
 

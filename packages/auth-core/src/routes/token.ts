@@ -35,25 +35,32 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
     );
   }
 
-  // ── Validate client authentication (private_key_jwt) ─────────
-  const clientAssertionType = body["client_assertion_type"] as string;
-  if (
-    clientAssertionType !==
-    "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-  ) {
-    throw new AppError(
-      "invalid_request",
-      "client_assertion_type must be urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-      400
-    );
-  }
+  // ── Client authentication ─────────────────────────────────────
+  // Two modes: private_key_jwt (web apps) or PKCE-only (native mobile apps).
+  // If client_assertion is present, use private_key_jwt.
+  // Otherwise, the client authenticates via PKCE code_verifier alone.
+  const clientAssertion = body["client_assertion"] as string | undefined;
+  const clientAssertionType = body["client_assertion_type"] as string | undefined;
+  const isPkceOnly = !clientAssertion;
 
-  const clientAssertion = body["client_assertion"] as string;
-  if (!clientAssertion) {
-    throw new AppError("invalid_request", "client_assertion is required", 400);
-  }
+  let clientId: string | undefined;
 
-  const { clientId } = await validateClientAssertion(clientAssertion, c.env);
+  if (!isPkceOnly) {
+    // ── private_key_jwt authentication ──────────────────────────
+    if (
+      clientAssertionType !==
+      "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+    ) {
+      throw new AppError(
+        "invalid_request",
+        "client_assertion_type must be urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        400
+      );
+    }
+
+    const result = await validateClientAssertion(clientAssertion, c.env);
+    clientId = result.clientId;
+  }
 
   // ── Validate authorization code ──────────────────────────────
   const code = body["code"] as string;
@@ -91,6 +98,11 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
     throw new AppError("invalid_grant", "Authorization code expired", 400);
   }
 
+  // For PKCE-only flow, derive clientId from the auth code
+  if (isPkceOnly) {
+    clientId = authCode.spId;
+  }
+
   // Verify the code belongs to this client
   if (authCode.spId !== clientId) {
     throw new AppError(
@@ -111,8 +123,39 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
   }
 
   // ── PKCE verification ────────────────────────────────────────
-  if (authCode.codeChallenge && authCode.codeChallengeMethod) {
-    const codeVerifier = body["code_verifier"] as string;
+  // Required for PKCE-only clients; optional (but enforced if present) for private_key_jwt clients.
+  const codeVerifier = body["code_verifier"] as string | undefined;
+
+  if (isPkceOnly) {
+    // PKCE-only flow: code_verifier is mandatory and code_challenge must have been set at authorize time
+    if (!authCode.codeChallenge || !authCode.codeChallengeMethod) {
+      throw new AppError(
+        "invalid_grant",
+        "PKCE code_challenge was not provided at authorization time; cannot use PKCE-only authentication",
+        400
+      );
+    }
+    if (!codeVerifier) {
+      throw new AppError(
+        "invalid_request",
+        "code_verifier is required for PKCE authentication",
+        400
+      );
+    }
+    if (!validateCodeVerifier(codeVerifier)) {
+      throw new AppError(
+        "invalid_request",
+        "Invalid code_verifier format",
+        400
+      );
+    }
+    await verifyCodeChallenge(
+      codeVerifier,
+      authCode.codeChallenge,
+      authCode.codeChallengeMethod
+    );
+  } else if (authCode.codeChallenge && authCode.codeChallengeMethod) {
+    // private_key_jwt + PKCE: code_verifier required when code_challenge was provided
     if (!codeVerifier) {
       throw new AppError(
         "invalid_request",
@@ -134,6 +177,9 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
     );
   }
 
+  // clientId is guaranteed set by this point (either private_key_jwt or PKCE-only path)
+  const resolvedClientId = clientId!;
+
   // ── Fetch user for legacy UUID (migrated user support) ────────
   const userRows = await db
     .select({ legacyUuid: users.legacyUuid })
@@ -144,7 +190,7 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
   // ── Compute pairwise subject identifier ──────────────────────
   const sub = await getPairwiseSub(
     authCode.userId,
-    clientId,
+    resolvedClientId,
     c.env,
     userRows[0]?.legacyUuid
   );
@@ -154,7 +200,7 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
   const accessToken = await issueAccessToken(
     c.env,
     authCode.userId,
-    clientId,
+    resolvedClientId,
     scopes
   );
 
@@ -163,7 +209,7 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
 
   const idTokenClaims: IdTokenClaims = {
     sub,
-    aud: clientId,
+    aud: resolvedClientId,
     acr: authCode.acr,
     ial: authCode.ial,
     aal: authCode.aal,
@@ -182,7 +228,7 @@ tokenRoute.post("/api/openid_connect/token", async (c) => {
     ip: c.req.header("cf-connecting-ip") ?? "unknown",
     ial: idTokenClaims.ial ?? 1,
     aal: idTokenClaims.aal ?? 1,
-    metadata: { spId: clientId, sub, grantType },
+    metadata: { spId: resolvedClientId, sub, grantType },
   });
 
   // ── Return token response ────────────────────────────────────

@@ -105,7 +105,8 @@ app.get("/.well-known/openid-configuration", async (c) => {
     grant_types_supported: ["authorization_code"],
     pushed_authorization_request_endpoint: `${issuer}/api/openid_connect/par`,
     require_pushed_authorization_requests: false,
-    token_endpoint_auth_methods_supported: ["private_key_jwt"],
+    token_endpoint_auth_methods_supported: ["private_key_jwt", "none"],
+    code_challenge_methods_supported: ["S256"],
     id_token_signing_alg_values_supported: ["RS256"],
     subject_types_supported: ["pairwise"],
     acr_values_supported: [
@@ -205,6 +206,23 @@ app.get("/dashboard", async (c) => {
 // ── Health check ────────────────────────────────────────────
 
 app.get("/health", (c) => c.json({ ok: true, service: "auth-core" }));
+
+// ── Admin: trigger key rotation ─────────────────────────────
+
+app.post("/api/internal/rotate-keys", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (authHeader !== `Bearer ${c.env.ADMIN_API_KEY}`) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  try {
+    await handleKeyRotation(c.env);
+    return c.json({ ok: true, message: "Key rotation completed" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[rotate-keys]", err);
+    return c.json({ error: msg }, 500);
+  }
+});
 
 // ── Worker export with queue + cron handlers ────────────────
 

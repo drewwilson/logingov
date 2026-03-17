@@ -30,7 +30,7 @@ function loadDatabaseUrl(): string {
 }
 
 const DATABASE_URL = loadDatabaseUrl();
-const { agencies } = agencySchema;
+const { agencies, serviceProviders } = agencySchema;
 
 const app = new Hono();
 
@@ -40,6 +40,24 @@ function db() {
 
 function uuid() {
   return crypto.randomUUID();
+}
+
+/** Generate a client_id URN from the agency abbreviation or friendly name. */
+function generateClientId(abbreviation: string | undefined, friendlyName: string): string {
+  const slug = (abbreviation || friendlyName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `urn:gov:gsa:openidconnect.profiles:sp:sso:${slug}:app`;
+}
+
+/** Parse redirect URIs from a newline-separated string. */
+function parseRedirectUris(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 // ── GET /api/agencies ───────────────────────────────────────
@@ -63,7 +81,22 @@ app.get("/api/agencies/:id", async (c) => {
     const d = db();
     const [row] = await d.select().from(agencies).where(eq(agencies.id, id)).limit(1);
     if (!row) return c.json({ error: "not_found" }, 404);
-    return c.json(row);
+
+    // Also fetch the linked service provider to return redirect URIs
+    const [sp] = await d
+      .select({ redirectUris: serviceProviders.redirectUris, clientId: serviceProviders.id })
+      .from(serviceProviders)
+      .where(eq(serviceProviders.agencyId, id))
+      .limit(1);
+
+    let redirectUris = "";
+    if (sp?.redirectUris) {
+      try {
+        redirectUris = JSON.parse(sp.redirectUris).join("\n");
+      } catch {}
+    }
+
+    return c.json({ ...row, redirectUris, clientId: sp?.clientId ?? null });
   } catch (e: any) {
     console.error("GET /api/agencies/:id error:", e);
     return c.json({ error: e.message }, 500);
@@ -77,8 +110,9 @@ app.post("/api/agencies", async (c) => {
     const body = await c.req.json();
     const now = new Date().toISOString();
     const id = uuid();
+    const d = db();
 
-    await db().insert(agencies).values({
+    await d.insert(agencies).values({
       id,
       iaaName: body.iaaName,
       friendlyName: body.friendlyName,
@@ -96,7 +130,38 @@ app.post("/api/agencies", async (c) => {
       updatedAt: now,
     });
 
-    return c.json({ id }, 201);
+    // Also create the service_providers record for OIDC registration
+    const redirectUris = parseRedirectUris(body.redirectUris);
+    const publicKey = body.publicCertificate || "";
+    const clientId = generateClientId(body.abbreviation, body.friendlyName);
+
+    if (publicKey && redirectUris.length > 0) {
+      const themeJson = body.themeConfig
+        ? JSON.stringify({
+            agencyName: body.friendlyName,
+            primaryColor: body.themeConfig.primaryColor,
+            heroPanel: body.themeConfig.heroPanel,
+            backLinkText: body.themeConfig.backLinkText,
+            backLinkUrl: body.themeConfig.backLinkUrl,
+            formBackground: { color: body.themeConfig.formBackgroundColor },
+            logo: body.logo || "",
+          })
+        : null;
+
+      await d.insert(serviceProviders).values({
+        id: clientId,
+        agencyId: id,
+        name: body.friendlyName,
+        ialMax: body.ial ?? 1,
+        aalMax: body.defaultAal ?? 1,
+        redirectUris: JSON.stringify(redirectUris),
+        publicKey,
+        theme: themeJson,
+        createdAt: now,
+      });
+    }
+
+    return c.json({ id, clientId }, 201);
   } catch (e: any) {
     console.error("POST /api/agencies error:", e);
     return c.json({ error: e.message }, 500);
@@ -132,6 +197,64 @@ app.put("/api/agencies/:id", async (c) => {
 
     await d.update(agencies).set(updates).where(eq(agencies.id, id));
 
+    // Sync the linked service_providers record
+    const [sp] = await d
+      .select({ id: serviceProviders.id })
+      .from(serviceProviders)
+      .where(eq(serviceProviders.agencyId, id))
+      .limit(1);
+
+    if (sp) {
+      const spUpdates: Record<string, unknown> = {};
+      if (body.friendlyName !== undefined) spUpdates.name = body.friendlyName;
+      if (body.ial !== undefined) spUpdates.ialMax = body.ial;
+      if (body.defaultAal !== undefined) spUpdates.aalMax = body.defaultAal;
+      if (body.publicCertificate !== undefined) spUpdates.publicKey = body.publicCertificate;
+      if (body.redirectUris !== undefined) {
+        const uris = parseRedirectUris(body.redirectUris);
+        if (uris.length > 0) spUpdates.redirectUris = JSON.stringify(uris);
+      }
+      if (body.themeConfig !== undefined) {
+        spUpdates.theme = JSON.stringify({
+          agencyName: body.friendlyName,
+          primaryColor: body.themeConfig?.primaryColor,
+          heroPanel: body.themeConfig?.heroPanel,
+          backLinkText: body.themeConfig?.backLinkText,
+          backLinkUrl: body.themeConfig?.backLinkUrl,
+          formBackground: { color: body.themeConfig?.formBackgroundColor },
+          logo: body.logo || "",
+        });
+      }
+      if (Object.keys(spUpdates).length > 0) {
+        await d.update(serviceProviders).set(spUpdates).where(eq(serviceProviders.id, sp.id));
+      }
+    } else {
+      // SP doesn't exist yet — create it (e.g., editing a pre-existing agency)
+      const redirectUris = parseRedirectUris(body.redirectUris);
+      if (redirectUris.length > 0 && body.publicCertificate) {
+        const clientId = generateClientId(body.abbreviation, body.friendlyName);
+        await d.insert(serviceProviders).values({
+          id: clientId,
+          agencyId: id,
+          name: body.friendlyName,
+          ialMax: body.ial ?? 1,
+          aalMax: body.defaultAal ?? 1,
+          redirectUris: JSON.stringify(redirectUris),
+          publicKey: body.publicCertificate,
+          theme: body.themeConfig ? JSON.stringify({
+            agencyName: body.friendlyName,
+            primaryColor: body.themeConfig.primaryColor,
+            heroPanel: body.themeConfig.heroPanel,
+            backLinkText: body.themeConfig.backLinkText,
+            backLinkUrl: body.themeConfig.backLinkUrl,
+            formBackground: { color: body.themeConfig.formBackgroundColor },
+            logo: body.logo || "",
+          }) : null,
+          createdAt: now,
+        });
+      }
+    }
+
     return c.json({ ok: true });
   } catch (e: any) {
     console.error("PUT /api/agencies/:id error:", e);
@@ -149,6 +272,8 @@ app.delete("/api/agencies/:id", async (c) => {
     const [existing] = await d.select({ id: agencies.id }).from(agencies).where(eq(agencies.id, id)).limit(1);
     if (!existing) return c.json({ error: "not_found" }, 404);
 
+    // Delete linked service provider first
+    await d.delete(serviceProviders).where(eq(serviceProviders.agencyId, id));
     await d.delete(agencies).where(eq(agencies.id, id));
 
     return c.json({ ok: true });

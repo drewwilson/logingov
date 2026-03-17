@@ -11,6 +11,7 @@ interface AgencyData {
   defaultAal: number;
   logo: string;
   publicCertificate: string;
+  redirectUris: string;
   status: string;
   themeConfig: {
     primaryColor: string;
@@ -32,6 +33,7 @@ const EMPTY: AgencyData = {
   defaultAal: 1,
   logo: "",
   publicCertificate: "",
+  redirectUris: "",
   status: "draft",
   themeConfig: {
     primaryColor: "#0071bc",
@@ -71,6 +73,7 @@ export function AgencyEdit({ id, onBack }: { id: string | null; onBack: () => vo
           defaultAal: row.defaultAal ?? 1,
           logo: row.logo ?? "",
           publicCertificate: row.publicCertificate ?? "",
+          redirectUris: row.redirectUris ?? "",
           status: row.status ?? "draft",
           themeConfig: theme,
         });
@@ -262,6 +265,17 @@ export function AgencyEdit({ id, onBack }: { id: string | null; onBack: () => vo
               rows={6}
               className="mono"
               placeholder="-----BEGIN PUBLIC KEY-----&#10;..."
+            />
+          </label>
+
+          <label>
+            <span className="label-text">Redirect URIs (one per line)</span>
+            <textarea
+              value={data.redirectUris}
+              onChange={(e) => set("redirectUris", e.target.value)}
+              rows={3}
+              className="mono"
+              placeholder={"https://agency.gov/auth/callback\nhttps://staging.agency.gov/auth/callback"}
             />
           </label>
         </fieldset>

@@ -43,11 +43,13 @@ VALUES
   );
 
 -- Test users (passwords will be set via Better Auth in actual dev)
-INSERT INTO users (id, email, email_verified_at, ial, locked_at, locale, ssn, birthdate, address, phone, verified_at, created_at, updated_at)
+-- email_blind_index values are SHA-256 hashes of the email with test key, for dev/test only
+INSERT INTO users (id, email, email_blind_index, email_verified_at, ial, locked_at, locale, ssn, birthdate, address, phone, verified_at, created_at, updated_at)
 VALUES
   (
     '01950000-0000-7000-8000-000000000001',
     'testuser@example.gov',
+    'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
     '2025-01-01T00:00:00.000Z',
     1,
     NULL,
@@ -59,6 +61,7 @@ VALUES
   (
     '01950000-0000-7000-8000-000000000002',
     'verified@example.gov',
+    'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3',
     '2025-01-01T00:00:00.000Z',
     2,
     NULL,

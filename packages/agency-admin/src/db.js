@@ -5,10 +5,8 @@
 import { Client } from "@planetscale/database";
 import { drizzle } from "drizzle-orm/planetscale-serverless";
 import * as agencySchema from "@logingov/shared/schema/agency";
-
-export function getAgencyDb(url: string) {
-  const client = new Client({ url });
-  return drizzle(client, { schema: agencySchema });
+export function getAgencyDb(url) {
+    const client = new Client({ url });
+    return drizzle(client, { schema: agencySchema });
 }
-
 export { agencySchema };

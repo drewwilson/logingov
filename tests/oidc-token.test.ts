@@ -111,7 +111,9 @@ describe("POST /api/openid_connect/token", () => {
   // ── client_assertion_type validation (runs without DB) ─────
 
   describe("client_assertion_type validation", () => {
-    it("rejects missing client_assertion_type", async () => {
+    it("falls through to PKCE-only mode when client_assertion is absent", async () => {
+      // Without client_assertion, the endpoint enters PKCE-only mode
+      // and the next validation error is "code is required"
       const body = new URLSearchParams();
       body.set("grant_type", "authorization_code");
 
@@ -128,13 +130,14 @@ describe("POST /api/openid_connect/token", () => {
       expect(res.status).toBe(400);
       const json = await res.json() as any;
       expect(json.error).toBe("invalid_request");
-      expect(json.message).toContain("client_assertion_type");
+      expect(json.message).toContain("code is required");
     });
 
-    it("rejects wrong client_assertion_type", async () => {
+    it("rejects wrong client_assertion_type when client_assertion is present", async () => {
       const body = new URLSearchParams();
       body.set("grant_type", "authorization_code");
       body.set("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:saml2-bearer");
+      body.set("client_assertion", "some.jwt.value");
 
       const res = await app.request(
         "/api/openid_connect/token",
@@ -156,7 +159,9 @@ describe("POST /api/openid_connect/token", () => {
   // ── client_assertion validation (runs without DB) ──────────
 
   describe("client_assertion validation", () => {
-    it("rejects missing client_assertion", async () => {
+    it("enters PKCE-only mode when client_assertion_type is set but client_assertion is absent", async () => {
+      // Without client_assertion, the endpoint enters PKCE-only mode
+      // regardless of client_assertion_type, and validates code next
       const body = new URLSearchParams();
       body.set("grant_type", "authorization_code");
       body.set(
@@ -177,7 +182,7 @@ describe("POST /api/openid_connect/token", () => {
       expect(res.status).toBe(400);
       const json = await res.json() as any;
       expect(json.error).toBe("invalid_request");
-      expect(json.message).toContain("client_assertion");
+      expect(json.message).toContain("code is required");
     });
   });
 
@@ -219,8 +224,9 @@ describe("POST /api/openid_connect/token", () => {
       expect(json.error).toBe("unsupported_grant_type");
     });
 
-    it("checks client_assertion_type before client_assertion", async () => {
-      // Valid grant_type but missing client_assertion_type
+    it("enters PKCE-only mode when no client_assertion is provided", async () => {
+      // Without client_assertion, endpoint enters PKCE-only mode.
+      // Next validation is "code is required" (not client_assertion_type error).
       const body = new URLSearchParams();
       body.set("grant_type", "authorization_code");
 
@@ -236,7 +242,7 @@ describe("POST /api/openid_connect/token", () => {
 
       const json = await res.json() as any;
       expect(json.error).toBe("invalid_request");
-      expect(json.message).toContain("client_assertion_type");
+      expect(json.message).toContain("code is required");
     });
   });
 
