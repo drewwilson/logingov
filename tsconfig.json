@@ -11,6 +11,7 @@
     { "path": "packages/saml-bridge" },
     { "path": "packages/identity-proofing" },
     { "path": "packages/security-events" },
+    { "path": "packages/agency-admin" },
     { "path": "tests" }
   ],
   "include": []

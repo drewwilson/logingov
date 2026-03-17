@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@logingov/shared/schema/agency": ["../shared/src/schema/agency.ts"],
+      "@logingov/hosted-ui/render": ["../hosted-ui/src/render.tsx"],
+      "@logingov/hosted-ui/theme": ["../hosted-ui/src/theme.ts"],
+      "@logingov/hosted-ui/types": ["../hosted-ui/src/types.ts"]
+    }
+  },
+  "include": ["src"]
+}

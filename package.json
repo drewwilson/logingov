@@ -21,7 +21,8 @@
     "dev:infra": "wrangler dev --main packages/infra/src/index.ts --name logingov-infra",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "lint": "echo TODO"
+    "lint": "echo TODO",
+    "dev:agency-admin": "pnpm --filter @logingov/agency-admin dev"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250312.0",
