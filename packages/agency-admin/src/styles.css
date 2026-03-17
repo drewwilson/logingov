@@ -65,16 +65,16 @@ nav {
 .nav-logo {
   width: 28px;
   height: 28px;
-  background: var(--accent);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #0d2e7b;
 }
 
 .nav-logo svg {
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
 }
 
 .nav-title {
@@ -85,7 +85,7 @@ nav {
 }
 
 .nav-title span {
-  color: var(--accent);
+  color: #0d2e7b;
 }
 
 /* ── LAYOUT ────────────────────────────────────── */

@@ -49,12 +49,10 @@ export function AgencyList({
           <table>
             <thead>
               <tr>
-                <th>IAA Name</th>
                 <th>Friendly Name</th>
                 <th>Protocol</th>
                 <th>Service Level</th>
                 <th>Status</th>
-                <th>Updated</th>
               </tr>
             </thead>
             <tbody>
@@ -68,7 +66,6 @@ export function AgencyList({
                   <td>
                     <span className={`badge badge-${a.status}`}>{a.status}</span>
                   </td>
-                  <td className="mono text-muted">{new Date(a.updatedAt).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>

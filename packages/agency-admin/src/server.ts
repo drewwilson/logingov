@@ -178,11 +178,11 @@ app.get("/api/agencies/:id/preview", async (c) => {
       } catch {}
     }
 
-    // Override with top-level agency fields if not set in themeConfig
-    if (row.friendlyName && !theme.agencyName) {
+    // Override with top-level agency fields (these take precedence)
+    if (row.friendlyName) {
       theme.agencyName = row.friendlyName;
     }
-    if (row.logo && !theme.logo) {
+    if (row.logo) {
       theme.logo = row.logo;
     }
 
