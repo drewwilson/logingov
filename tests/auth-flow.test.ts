@@ -205,14 +205,15 @@ describe("POST /api/auth-flow/complete-login", () => {
   // ── HTTP method guard ──────────────────────────────────────
 
   describe("HTTP method", () => {
-    it("rejects GET requests", async () => {
+    it("GET without session_id redirects to sign-in", async () => {
       const res = await app.request(
         "/api/auth-flow/complete-login",
         { method: "GET" },
         env,
       );
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toContain("/sign-in");
     });
   });
 });

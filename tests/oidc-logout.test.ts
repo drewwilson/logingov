@@ -157,7 +157,7 @@ describe("GET /openid_connect/logout", () => {
     expect(location).toBe("https://secure.login.gov/");
   });
 
-  it("falls back to redirectUris when postLogoutRedirectUris is null", async () => {
+  it("falls back to redirectUris origin matching when postLogoutRedirectUris is null", async () => {
     // Seed an SP with no postLogoutRedirectUris
     const spNoPostLogout = {
       ...TEST_SP,
@@ -166,13 +166,14 @@ describe("GET /openid_connect/logout", () => {
     };
     await seedSP(env, spNoPostLogout as any);
 
-    // The SP's redirectUris include this one
-    const redirectUri = TEST_SP.redirectUris[0];
+    // The SP's redirectUris include https://agency.example.gov/auth/callback,
+    // so the origin https://agency.example.gov should be allowed
+    const redirectOrigin = new URL(TEST_SP.redirectUris[0]).origin;
 
     const res = await app.request(
       buildLogoutUrl({
         client_id: spNoPostLogout.id,
-        post_logout_redirect_uri: redirectUri,
+        post_logout_redirect_uri: redirectOrigin,
       }),
       { redirect: "manual" },
       env
@@ -180,6 +181,6 @@ describe("GET /openid_connect/logout", () => {
 
     expect(res.status).toBe(302);
     const location = res.headers.get("Location");
-    expect(location).toBe(redirectUri);
+    expect(location).toBe(redirectOrigin + "/");
   });
 });

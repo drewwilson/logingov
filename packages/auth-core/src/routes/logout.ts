@@ -63,14 +63,20 @@ logoutRoute.get("/openid_connect/logout", async (c) => {
 
   if (postLogoutRedirectUri) {
     const sp = await lookupServiceProvider(clientId, c.env);
-    // Use post_logout_redirect_uris if configured, fall back to redirect_uris
-    const allowedUris = sp?.postLogoutRedirectUris ?? sp?.redirectUris ?? [];
-    if (sp && allowedUris.includes(postLogoutRedirectUri)) {
-      redirectTo = postLogoutRedirectUri;
-    } else {
-      // Per spec, if the redirect URI is not registered, ignore it
-      // and use the default
-      redirectTo = DEFAULT_LOGOUT_REDIRECT;
+    if (sp) {
+      if (sp.postLogoutRedirectUris?.includes(postLogoutRedirectUri)) {
+        // Exact match against registered post-logout URIs
+        redirectTo = postLogoutRedirectUri;
+      } else if (!sp.postLogoutRedirectUris) {
+        // No post-logout URIs configured — allow if the origin matches
+        // a registered redirect URI (graceful fallback)
+        const redirectOrigins = (sp.redirectUris ?? []).map(
+          (u: string) => { try { return new URL(u).origin; } catch { return null; } }
+        );
+        if (redirectOrigins.includes(postLogoutRedirectUri)) {
+          redirectTo = postLogoutRedirectUri;
+        }
+      }
     }
   }
 

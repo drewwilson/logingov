@@ -64,7 +64,7 @@ function decodeJwtPayload(jwt: string): Record<string, unknown> {
 }
 
 async function derivePublicKeyPem(privatePem: string): Promise<string> {
-  const privateKey = await jose.importPKCS8(privatePem, "RS256");
+  const privateKey = await jose.importPKCS8(privatePem, "RS256", { extractable: true });
   const jwk = await crypto.subtle.exportKey("jwk", privateKey as CryptoKey) as JsonWebKey;
   // Strip private fields to get public JWK
   const publicJwk: jose.JWK = { kty: jwk.kty!, n: jwk.n!, e: jwk.e!, alg: "RS256" };
@@ -399,7 +399,26 @@ app.get("/callback", async (c) => {
 // ── GET /logout — Clear session ─────────────────────────────────
 
 app.get("/logout", (c) => {
+  const sessionCookie = getCookie(c, "demo_agency_session");
   deleteCookie(c, "demo_agency_session", { path: "/" });
+
+  if (sessionCookie) {
+    try {
+      const session = JSON.parse(atob(sessionCookie));
+      const origin = selfOrigin(c.req.raw);
+      const logoutUrl = new URL(`${c.env.AUTH_CORE_URL}/openid_connect/logout`);
+      logoutUrl.searchParams.set("client_id", c.env.CLIENT_ID);
+      logoutUrl.searchParams.set("id_token_hint", session.id_token);
+      logoutUrl.searchParams.set("post_logout_redirect_uri", origin);
+      if (session.access_token) {
+        logoutUrl.searchParams.set("access_token", session.access_token);
+      }
+      return c.redirect(logoutUrl.toString(), 302);
+    } catch {
+      // Malformed cookie — fall through to simple redirect
+    }
+  }
+
   return c.redirect("/", 302);
 });
 
@@ -432,13 +451,32 @@ app.get("/setup", async (c) => {
       })
     );
 
-    const data = await res.json();
+    let data = await res.json();
+
+    // If SP already exists, update it with the latest config
+    if (res.status === 409) {
+      const patchRes = await authCoreFetch(c.env,
+        new Request(`${c.env.AUTH_CORE_URL}/admin/service-providers/${encodeURIComponent(c.env.CLIENT_ID)}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${c.env.ADMIN_API_KEY}`,
+          },
+          body: JSON.stringify({
+            redirectUris: spPayload.redirectUris,
+            publicKey: spPayload.publicKey,
+            postLogoutRedirectUris: spPayload.postLogoutRedirectUris,
+          }),
+        })
+      );
+      data = await patchRes.json();
+    }
 
     const statusMsg =
       res.status === 201
         ? "Service provider registered successfully!"
         : res.status === 409
-          ? "Service provider already exists (this is fine)."
+          ? "Service provider updated successfully!"
           : `Unexpected response: ${res.status}`;
 
     return c.html(`<!DOCTYPE html>
