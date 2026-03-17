@@ -33,11 +33,11 @@ const GoogleIcon = () => (
 export function SocialButtons() {
   return (
     <div className="social-buttons">
-      <button type="button" className="social-btn" data-provider="microsoft">
-        <MicrosoftIcon />
-      </button>
       <button type="button" className="social-btn" data-provider="google">
         <GoogleIcon />
+      </button>
+      <button type="button" className="social-btn" data-provider="microsoft">
+        <MicrosoftIcon />
       </button>
     </div>
   );
