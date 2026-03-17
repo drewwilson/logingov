@@ -1,0 +1,31 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "..",
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["@cloudflare/workers-types", "vitest/globals"],
+    "paths": {
+      "@logingov/shared":    ["packages/shared/src/index.ts"],
+      "@logingov/shared/*":  ["packages/shared/src/*/index.ts", "packages/shared/src/*.ts"],
+      "@logingov/infra":     ["packages/infra/src/index.ts"],
+      "@logingov/session-do": ["packages/session-do/src/index.ts"],
+      "@logingov/auth-core": ["packages/auth-core/src/index.ts"],
+      "@logingov/auth-core/routes/*": ["packages/auth-core/src/routes/*.ts"],
+      "hono":                ["packages/auth-core/node_modules/hono"],
+      "hono/*":              ["packages/auth-core/node_modules/hono/*"]
+    },
+    "baseUrl": ".."
+  },
+  "include": ["./**/*.ts"],
+  "references": [
+    { "path": "../packages/shared" },
+    { "path": "../packages/infra" },
+    { "path": "../packages/session-do" },
+    { "path": "../packages/auth-core" },
+    { "path": "../packages/mfa" },
+    { "path": "../packages/account" }
+  ]
+}

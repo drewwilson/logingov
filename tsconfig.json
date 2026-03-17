@@ -10,7 +10,8 @@
     { "path": "packages/mfa" },
     { "path": "packages/saml-bridge" },
     { "path": "packages/identity-proofing" },
-    { "path": "packages/security-events" }
+    { "path": "packages/security-events" },
+    { "path": "tests" }
   ],
   "include": []
 }

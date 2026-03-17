@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
-    include: ["packages/**/src/**/*.test.ts"],
+    include: ["packages/**/src/**/*.test.ts", "tests/**/*.test.ts"],
   },
   resolve: {
     alias: {
@@ -17,6 +17,23 @@ export default defineConfig({
         __dirname,
         "packages/session-do/src/index.ts",
       ),
+      "@logingov/auth-core/routes/certs": path.resolve(
+        __dirname,
+        "packages/auth-core/src/routes/certs.ts",
+      ),
+      "@logingov/auth-core/routes/userinfo": path.resolve(
+        __dirname,
+        "packages/auth-core/src/routes/userinfo.ts",
+      ),
+      "@logingov/auth-core/routes/logout": path.resolve(
+        __dirname,
+        "packages/auth-core/src/routes/logout.ts",
+      ),
+      "@logingov/auth-core": path.resolve(
+        __dirname,
+        "packages/auth-core/src/index.ts",
+      ),
+      hono: path.resolve(__dirname, "packages/auth-core/node_modules/hono"),
     },
   },
 });
