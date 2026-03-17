@@ -622,7 +622,7 @@ export function renderPage(
       var debounceTimer = null;
 
       function isValidEmail(v) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v);
       }
 
       function revealPassword(focus) {

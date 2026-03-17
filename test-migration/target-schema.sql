@@ -1,14 +1,18 @@
 -- Login.gov Target Schema — MySQL 8 (PlanetScale-compatible)
--- Matches drizzle/migrations/0001_init.sql and packages/shared/src/schema/index.ts
+-- Matches the full migration chain: 0001_init through 0007_widen_logo_columns
+-- plus packages/shared/src/schema/index.ts and packages/auth-core/src/schema.ts
+
+-- ── Login.gov application tables ─────────────────────────────
 
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(36) PRIMARY KEY,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  email_blind_index VARCHAR(64),
+  email TEXT NOT NULL,
+  email_blind_index VARCHAR(64) NOT NULL UNIQUE,
   email_verified_at VARCHAR(30),
   ial INT NOT NULL DEFAULT 1,
   locked_at VARCHAR(30),
   locale VARCHAR(10) NOT NULL DEFAULT 'en',
+  legacy_uuid VARCHAR(36) NULL,
   ssn TEXT,
   birthdate TEXT,
   address TEXT,
@@ -17,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at VARCHAR(30) NOT NULL,
   updated_at VARCHAR(30) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX users_legacy_uuid_idx ON users (legacy_uuid);
 
 CREATE TABLE IF NOT EXISTS user_emails (
   id VARCHAR(36) PRIMARY KEY,
@@ -39,6 +45,26 @@ CREATE TABLE IF NOT EXISTS credentials (
   INDEX credentials_user_id_idx (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS agencies (
+  id VARCHAR(36) PRIMARY KEY,
+  iaa_name VARCHAR(255) NOT NULL,
+  friendly_name VARCHAR(255) NOT NULL,
+  abbreviation VARCHAR(50),
+  description TEXT,
+  website_url VARCHAR(500),
+  protocol VARCHAR(10) NOT NULL DEFAULT 'oidc',
+  ial INT NOT NULL DEFAULT 1,
+  default_aal INT NOT NULL DEFAULT 1,
+  logo MEDIUMTEXT,
+  public_certificate TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+  theme_config TEXT,
+  created_at VARCHAR(30) NOT NULL,
+  updated_at VARCHAR(30) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX agencies_status_idx ON agencies(status);
+
 CREATE TABLE IF NOT EXISTS service_providers (
   id VARCHAR(255) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -49,7 +75,10 @@ CREATE TABLE IF NOT EXISTS service_providers (
   saml_metadata_url TEXT,
   push_notification_url TEXT,
   post_logout_redirect_uris TEXT,
-  created_at VARCHAR(30) NOT NULL
+  theme MEDIUMTEXT,
+  agency_id VARCHAR(36),
+  created_at VARCHAR(30) NOT NULL,
+  INDEX service_providers_agency_id_idx (agency_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS auth_codes (
@@ -82,4 +111,63 @@ CREATE TABLE IF NOT EXISTS identity_events (
   created_at VARCHAR(30) NOT NULL,
   INDEX identity_events_user_id_idx (user_id),
   INDEX identity_events_created_at_idx (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Better Auth tables ───────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS `user` (
+  id VARCHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  emailVerified BOOLEAN NOT NULL DEFAULT FALSE,
+  image TEXT,
+  createdAt TIMESTAMP NOT NULL,
+  updatedAt TIMESTAMP NOT NULL,
+  twoFactorEnabled BOOLEAN DEFAULT FALSE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `session` (
+  id VARCHAR(36) PRIMARY KEY,
+  userId VARCHAR(36) NOT NULL,
+  token VARCHAR(255) NOT NULL UNIQUE,
+  expiresAt TIMESTAMP NOT NULL,
+  ipAddress VARCHAR(45),
+  userAgent TEXT,
+  createdAt TIMESTAMP NOT NULL,
+  updatedAt TIMESTAMP NOT NULL,
+  FOREIGN KEY (userId) REFERENCES `user`(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `account` (
+  id VARCHAR(36) PRIMARY KEY,
+  userId VARCHAR(36) NOT NULL,
+  accountId VARCHAR(255) NOT NULL,
+  providerId VARCHAR(255) NOT NULL,
+  accessToken TEXT,
+  refreshToken TEXT,
+  idToken TEXT,
+  accessTokenExpiresAt TIMESTAMP NULL,
+  refreshTokenExpiresAt TIMESTAMP NULL,
+  scope TEXT,
+  password TEXT,
+  createdAt TIMESTAMP NOT NULL,
+  updatedAt TIMESTAMP NOT NULL,
+  FOREIGN KEY (userId) REFERENCES `user`(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS verification (
+  id VARCHAR(36) PRIMARY KEY,
+  identifier VARCHAR(255) NOT NULL,
+  value TEXT NOT NULL,
+  expiresAt TIMESTAMP NOT NULL,
+  createdAt TIMESTAMP NOT NULL,
+  updatedAt TIMESTAMP NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS twoFactor (
+  id VARCHAR(36) PRIMARY KEY,
+  secret TEXT NOT NULL,
+  backupCodes TEXT NOT NULL,
+  userId VARCHAR(36) NOT NULL,
+  FOREIGN KEY (userId) REFERENCES `user`(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

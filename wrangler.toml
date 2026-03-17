@@ -135,6 +135,7 @@ crons = [
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "e33ce413f7af47639f1c7aabfd0087e3"
+localConnectionString = "mysql://root:password@localhost:3306/logingov_target"
 
 # ── Non-secret config vars ──────────────────────────────────
 [vars]

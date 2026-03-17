@@ -606,7 +606,7 @@ export function renderPage(theme, sessionId, locale, ial = "1") {
       var debounceTimer = null;
 
       function isValidEmail(v) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v);
       }
 
       function revealPassword(focus) {

@@ -114,7 +114,9 @@ export function createAuth(env: Env) {
       "https://secure.login.gov",
       "https://idp.int.identitysandbox.gov",
       "http://localhost:8787",
+      "http://localhost:8788",
       env.BASE_URL || "",
+      ...(env.ALLOWED_ORIGINS?.split(",") ?? []),
     ].filter(Boolean),
   });
 }

@@ -5,7 +5,7 @@
  * Includes the service_providers table so agency-admin can create
  * the full OIDC registration in one step.
  */
-import { mysqlTable, varchar, text, int, index } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, mediumtext, int, index } from "drizzle-orm/mysql-core";
 
 export const agencies = mysqlTable(
   "agencies",
@@ -19,7 +19,7 @@ export const agencies = mysqlTable(
     protocol: varchar("protocol", { length: 10 }).notNull().default("oidc"),
     ial: int("ial").notNull().default(1),
     defaultAal: int("default_aal").notNull().default(1),
-    logo: text("logo"),
+    logo: mediumtext("logo"),
     publicCertificate: text("public_certificate"),
     status: varchar("status", { length: 20 }).notNull().default("draft"),
     themeConfig: text("theme_config"),
@@ -42,7 +42,7 @@ export const serviceProviders = mysqlTable(
     samlMetadataUrl: text("saml_metadata_url"),
     pushNotificationUrl: text("push_notification_url"),
     postLogoutRedirectUris: text("post_logout_redirect_uris"),
-    theme: text("theme"),
+    theme: mediumtext("theme"),
     createdAt: varchar("created_at", { length: 30 }).notNull(),
   },
   (table) => [index("service_providers_agency_id_idx").on(table.agencyId)]
