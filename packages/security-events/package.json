@@ -9,7 +9,7 @@
   "dependencies": {
     "@logingov/infra": "workspace:*",
     "@logingov/shared": "workspace:*",
-    "drizzle-orm": "0.45.1",
+    "drizzle-orm": "0.45.2",
     "hono": "^4.7.0",
     "jose": "^6.2.1"
   },
